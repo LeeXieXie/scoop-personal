@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/LeeXieXie/scoop-personal/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/LeeXieXie/scoop-personal/actions/workflows/ci.yml) [![Excavator](https://github.com/LeeXieXie/scoop-personal/actions/workflows/excavator.yml/badge.svg?branch=master)](https://github.com/LeeXieXie/scoop-personal/actions/workflows/excavator.yml)
 
-这是用于维护仓库所有者关注的 Windows 应用的个人 [Scoop](https://scoop.sh) 软件桶，不是 [Extras](https://github.com/ScoopInstaller/Extras) 的 fork 或镜像。**当前已收录 `magpie-ai`。**
+这是用于维护仓库所有者关注的 Windows 应用的个人 [Scoop](https://scoop.sh) 软件桶，不是 [Extras](https://github.com/ScoopInstaller/Extras) 的 fork 或镜像。**当前已收录 `magpie-ai` 和 `magpie-ai-cli`。**
 
 ## 使用
 
@@ -22,6 +22,16 @@ scoop update magpie-ai
 
 若已从 Extras 安装 `magpie-ai`，请勿重复安装同名包。先运行 `scoop info magpie-ai` 核对来源并备份配置；切换清单来源前，请先核实能保留现有应用与 `persist` 数据的操作方式。
 
+CLI 可单独安装，无需先安装 GUI。首次安装 `magpie-ai-cli`、查看命令帮助及后续更新（已从 Main 安装的用户请先阅读下方提示）：
+
+```powershell
+scoop install personal/magpie-ai-cli
+magpie-cli --help
+scoop update magpie-ai-cli
+```
+
+若已从 Main 安装 `magpie-ai-cli`，仅添加 `personal` 桶不会切换已安装包的来源，请勿重复安装同名包。迁移前请先运行 `scoop info magpie-ai-cli` 核对来源、备份配置，并核实能保留现有应用与数据的操作方式。
+
 安装前请检查清单及其调用的安装脚本，尤其是自动更新后的变更。
 
 ## 已收录应用
@@ -31,6 +41,10 @@ scoop update magpie-ai
 清单参考 [ScoopInstaller/Extras 的 magpie-ai.json](https://github.com/ScoopInstaller/Extras/blob/master/bucket/magpie-ai.json)，参考清单采用 Unlicense；软件官方源码 [yetone/magpie](https://github.com/yetone/magpie) 采用 MIT 许可证。本桶通过现有 Excavator 直接跟踪官方 `yetone/magpie-releases` 的最新稳定版，不会定时同步 Extras 的完整清单；上游安装逻辑的变更需人工审核后合入。
 
 Scoop 自 `0.1.1067` 起持久化 Magpie 数据。旧配置位于 `$env:USERPROFILE\.config\magpie`，当前持久化目录为 `$persist_dir\data`。如需沿用旧配置，请先备份并自行迁移；清单不会自动迁移旧数据。
+
+[`magpie-ai-cli`](bucket/magpie-ai-cli.json)：[Magpie 官方发布仓库](https://github.com/yetone/magpie-releases)。支持 Windows x64 和 ARM64；首次收录版本为 `0.1.1104`，当前版本以清单为准。可执行文件为 `magpie-cli.exe`，Scoop shim 命令为 `magpie-cli`；可与 `magpie-ai` 并存，不会覆盖 GUI 的 `magpie.exe`。
+
+清单参考 [ScoopInstaller/Main 的 magpie-ai-cli.json](https://github.com/ScoopInstaller/Main/blob/master/bucket/magpie-ai-cli.json)，参考清单采用 Unlicense；应用采用 MIT 许可证。CLI 不应用 GUI 的 `persist` 钩子或 `noAutoUpdate` 设置。
 
 ## 维护与添加应用
 
@@ -66,8 +80,9 @@ GitHub CI 会检出 Scoop，安装并缓存测试依赖，分别在 `powershell`
 
 - Excavator 按 UTC cron `20 */4 * * *` 每 4 小时运行一次，也可在 Actions 中通过 `workflow_dispatch` 手动运行；手动运行请选择 `master` 分支。
 - 真实清单须同时正确配置 `checkver` 与 `autoupdate` 才能参与自动更新。工作流检查新版本、下载文件并计算及检查哈希，将清单更新提交到 `master`。
-- `magpie-ai` 参与现有的每 4 小时更新检查，使用官方发布的 `SHA256SUMS` 获取校验值；安装 `magpie.exe` 并持久化 `data` 目录。
-- 首次初始化时，仅在不存在已持久化的 `settings.json` 时设置 `noAutoUpdate = true`，关闭应用自更新，由 Scoop 负责更新；不会覆盖已持久化的设置。
+- `magpie-ai` 与 `magpie-ai-cli` 均通过现有每 4 小时运行的 Excavator 跟踪官方最新稳定版，使用官方发布的 `SHA256SUMS` 获取校验值，不依赖 Main/Extras 清单的更新时间。工作流只更新桶内清单，不会自动更新用户本地已安装的应用；本地更新仍需执行 `scoop update`。
+- `magpie-ai` 安装 `magpie.exe` 并持久化 `data` 目录。
+- `magpie-ai` 首次初始化时，仅在不存在已持久化的 `settings.json` 时设置 `noAutoUpdate = true`，关闭应用自更新，由 Scoop 负责更新；不会覆盖已持久化的设置。
 - `THROW_ERROR: 1` 会将检查失败作为错误报告。同一分支的 Excavator 更新任务互斥执行，不取消正在运行的任务。
 - 标准 `GITHUB_TOKEN` 的机器人提交不会触发 `push` CI，因此 CI 除推送、PR 和手动触发外，也通过 `workflow_run` 跟随成功完成的 Excavator 运行；Excavator 失败时跳过该测试任务。
 - 公开仓库连续 60 天无活动时，GitHub 可能禁用定时工作流；需要时到 Actions 中重新启用。
