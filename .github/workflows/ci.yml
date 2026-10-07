@@ -7,6 +7,9 @@ on:
       - 'master'
   pull_request:
   workflow_dispatch:
+  workflow_run:
+    workflows: [Excavator]
+    types: [completed]
 
 permissions:
   contents: read
@@ -14,6 +17,7 @@ permissions:
 jobs:
   test:
     name: Test
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: windows-latest
     strategy:
       matrix:
@@ -28,11 +32,14 @@ jobs:
           # Need at least 2 commits to properly gather changed files for linting
           fetch-depth: 2
           path: 'my_bucket'
+          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
+          persist-credentials: false
       - name: Checkout Scoop
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ScoopInstaller/Scoop
           path: 'scoop_core'
+          persist-credentials: false
       - name: Install and cache test dependencies
         uses: potatoqualitee/psmodulecache@9e4b63833c22c1768d648e115a9c849afdda22a5 # v6.3
         with:

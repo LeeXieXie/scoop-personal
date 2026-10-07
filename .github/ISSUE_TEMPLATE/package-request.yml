@@ -1,52 +1,52 @@
-name: 📦 Package Request
-description: Open an issue about a missing package.
-title: "[Request]: "
+name: 📦 软件收录申请
+description: 申请收录缺失的应用，仅用于跟踪，清单需另行编写。
+title: "[收录申请]: "
 labels: ["package-request"]
 body:
 - type: checkboxes
   attributes:
-    label: Prerequisites
+    label: 提交前确认
     options:
-    - label: I have searched all issues/PRs to ensure it has not already been reported or fixed.
+    - label: 我已搜索所有问题（Issues）和拉取请求（PR），确认没有重复申请或已完成的收录。
       required: true
 - type: checkboxes
   attributes:
-    label: Criteria
-    description: For a package to be acceptable in this bucket, it should be
+    label: 收录条件
+    description: 拟收录应用须满足以下条件。
     options:
-    - label: Criteria 1
+    - label: 这是仓库所有者关注的 Windows 应用。
       required: true
-    - label: Criteria 2
+    - label: 具有可验证的官方发布或下载来源。
       required: true
-    - label: Criteria 3
+    - label: 分发许可证允许预期用途，且不绕过许可限制或访问控制。
       required: true
 - type: input
   attributes:
-    label: Name
-    description: Name of the package
+    label: 应用名称
+    description: 应用的正式名称。
   validations:
     required: true
 - type: input
   attributes:
-    label: Description
-    description: Clear and concise details of what it is
+    label: 简介
+    description: 简明说明应用的用途。
   validations:
     required: true
 - type: input
   attributes:
-    label: Homepage
-    description: URI of the package's homepage
+    label: 官方主页
+    description: 应用官方主页的 URL。
   validations:
     required: true
 - type: input
   attributes:
-    label: Download Link(s)
-    description: URI(s) of the package's download(s)
+    label: 官方下载链接
+    description: 官方发布页或可验证的官方下载 URL。
   validations:
     required: true
 - type: textarea
   attributes:
-    label: Some Indication of Popularity/Repute
-    description: GitHub stars/software reviews etc.
+    label: 知名度或口碑依据
+    description: GitHub 星标、软件评测等可供核实的资料。
   validations:
     required: true

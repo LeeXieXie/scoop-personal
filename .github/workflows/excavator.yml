@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: excavator-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   excavate:
     name: Excavate
@@ -20,3 +24,4 @@ jobs:
         uses: ScoopInstaller/GithubActions@5bceeda181721d9d10a18fdcc3ddca6f33467ae6 # v3.0.0
         env:
           SKIP_UPDATED: 1
+          THROW_ERROR: 1
