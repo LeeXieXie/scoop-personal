@@ -87,7 +87,7 @@ GitHub CI 会检出 Scoop，安装并缓存测试依赖，分别在 `powershell`
 - `magpie-ai` 安装 `magpie.exe` 并持久化 `data` 目录。
 - `magpie-ai` 首次初始化时，仅在不存在已持久化的 `settings.json` 时设置 `noAutoUpdate = true`，关闭应用自更新，由 Scoop 负责更新；不会覆盖已持久化的设置。
 - `THROW_ERROR: 1` 会将检查失败作为错误报告。同一分支的 Excavator 更新任务互斥执行，不取消正在运行的任务。
-- 标准 `GITHUB_TOKEN` 的机器人提交不会触发 `push` CI，因此 CI 除推送、PR 和手动触发外，也通过 `workflow_run` 跟随成功完成的 Excavator 运行；Excavator 失败时跳过该测试任务。
+- 标准 `GITHUB_TOKEN` 的机器人提交不会触发 `push` CI。手动与四小时定时 Excavator 成功后，通过 `workflow_run` 接续测试；监听工作流派发的机器人 Excavator 成功后，显式派发 `workflow_dispatch` 触发 CI。Excavator 失败时不会启动测试。
 - 公开仓库连续 60 天无活动时，GitHub 可能禁用定时工作流；需要时到 Actions 中重新启用。
 
 ## 参考与许可

@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: excavator-${{ github.ref }}
@@ -25,3 +26,15 @@ jobs:
         env:
           SKIP_UPDATED: 1
           THROW_ERROR: 1
+      - name: Trigger CI for bot-dispatched update
+        if: github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          UPDATE_BRANCH: ${{ github.ref_name }}
+        run: |
+          gh workflow run ci.yml --ref $env:UPDATE_BRANCH
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to trigger CI for bot-dispatched update."
+          }
