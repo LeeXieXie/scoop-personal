@@ -79,15 +79,15 @@ GitHub CI 会检出 Scoop，安装并缓存测试依赖，分别在 `powershell`
 ## 自动更新
 
 - Upstream Watch 按 UTC cron `2-57/5 * * * *` 每 5 分钟在 Linux runner 上检查官方最新稳定版；任一 Magpie 清单版本不一致，且 GUI、CLI 的 x64/ARM64 文件及 `SHA256SUMS` 全部上传完成后，才触发现有 Excavator。文件未齐时等待下一次检查；检查时发现 Excavator 已在运行/排队则跳过，无新版本时不启动 Excavator。检查与触发之间若恰逢手动或定时启动 Excavator，可能重复排队；已有并发锁保证串行执行。
-- Excavator 按 UTC cron `20 */4 * * *` 每 4 小时运行一次，也可在 Actions 中通过 `workflow_dispatch` 手动运行；手动运行请选择 `master` 分支。
-- 原有每 4 小时的 Excavator 保留作为兜底。GitHub 定时任务可能延迟，因此每 5 分钟检查不保证发布后 5 分钟内完成更新。
+- Excavator 按 UTC cron `*/5 * * * *` 每 5 分钟运行一次，也可在 Actions 中通过 `workflow_dispatch` 手动运行；手动运行请选择 `master` 分支。
+- GitHub 定时任务可能排队或延迟，实际运行间隔及更新完成时间可能超过 5 分钟。
 - 真实清单须同时正确配置 `checkver` 与 `autoupdate` 才能参与自动更新。工作流检查新版本、下载文件并计算及检查哈希，将清单更新提交到 `master`。
 - `magpie-ai` 与 `magpie-ai-cli` 均通过 Upstream Watch 和 Excavator 跟踪官方最新稳定版，使用官方发布的 `SHA256SUMS` 获取校验值，不依赖 Main/Extras 清单的更新时间。工作流只更新桶内清单，不会自动更新用户本地已安装的应用；本地更新仍需执行 `scoop update`。
 - Upstream Watch 使用标准 `GITHUB_TOKEN` 的 `contents: read` 和 `actions: write` 权限调用已有 `workflow_dispatch`，无需额外配置 PAT；可手动在 `master` 分支运行监听任务。
 - `magpie-ai` 安装 `magpie.exe` 并持久化 `data` 目录。
 - `magpie-ai` 首次初始化时，仅在不存在已持久化的 `settings.json` 时设置 `noAutoUpdate = true`，关闭应用自更新，由 Scoop 负责更新；不会覆盖已持久化的设置。
 - `THROW_ERROR: 1` 会将检查失败作为错误报告。同一分支的 Excavator 更新任务互斥执行，不取消正在运行的任务。
-- 标准 `GITHUB_TOKEN` 的机器人提交不会触发 `push` CI。手动与四小时定时 Excavator 成功后，通过 `workflow_run` 接续测试；监听工作流派发的机器人 Excavator 成功后，显式派发 `workflow_dispatch` 触发 CI。Excavator 失败时不会启动测试。
+- 标准 `GITHUB_TOKEN` 的机器人提交不会触发 `push` CI。手动与定时 Excavator 成功后，通过 `workflow_run` 接续测试；监听工作流派发的机器人 Excavator 成功后，显式派发 `workflow_dispatch` 触发 CI。Excavator 失败时不会启动测试。
 - 公开仓库连续 60 天无活动时，GitHub 可能禁用定时工作流；需要时到 Actions 中重新启用。
 
 ## 参考与许可
