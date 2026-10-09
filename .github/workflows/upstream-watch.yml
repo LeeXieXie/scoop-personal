@@ -1,0 +1,74 @@
+name: Upstream Watch
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Check every 5 minutes, away from the start of the hour (UTC).
+    - cron: '2-57/5 * * * *'
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: upstream-watch-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    name: Check Magpie release
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check release and trigger Excavator
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          release="$(gh api repos/yetone/magpie-releases/releases/latest)"
+          version="$(jq -er '.tag_name | ltrimstr("v") | select(length > 0)' <<< "$release")"
+
+          needs_update=false
+          for manifest in bucket/magpie-ai.json bucket/magpie-ai-cli.json; do
+            current="$(jq -er '.version' "$manifest")"
+            if [[ "$current" != "$version" ]]; then
+              needs_update=true
+            fi
+          done
+
+          if [[ "$needs_update" == false ]]; then
+            echo "Both manifests already match upstream version $version."
+            exit 0
+          fi
+
+          for asset in \
+            magpie-windows-amd64.exe \
+            magpie-windows-arm64.exe \
+            magpie-cli-windows-amd64.exe \
+            magpie-cli-windows-arm64.exe \
+            SHA256SUMS; do
+            if ! jq -e --arg name "$asset" \
+              'any(.assets[]; .name == $name and .state == "uploaded" and .size > 0)' \
+              <<< "$release" > /dev/null; then
+              echo "Upstream asset $asset is not ready; retry on the next check."
+              exit 0
+            fi
+          done
+
+          runs="$(gh run list --workflow excavator.yml --branch "$DEFAULT_BRANCH" --limit 20 --json status)"
+          if jq -e 'any(.[]; .status != "completed")' <<< "$runs" > /dev/null; then
+            echo "Excavator already has an unfinished run; retry on the next check."
+            exit 0
+          fi
+
+          gh workflow run excavator.yml --ref "$DEFAULT_BRANCH"
+          echo "Triggered Excavator for upstream version $version."
