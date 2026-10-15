@@ -102,8 +102,9 @@ GitHub CI 会检出 Scoop，安装并缓存测试依赖，分别在 `powershell`
 ## 自动更新
 
 - Upstream Watch 按 UTC cron `2-57/5 * * * *` 每 5 分钟在 Linux runner 上检查官方最新稳定版；任一 Magpie 清单版本不一致，且 GUI、CLI 的 x64/ARM64 文件及 `SHA256SUMS` 全部上传完成后，才触发现有 Excavator。文件未齐时等待下一次检查；检查时发现 Excavator 已在运行/排队则跳过，无新版本时不启动 Excavator。检查与触发之间若恰逢手动或定时启动 Excavator，可能重复排队；已有并发锁保证串行执行。
-- Excavator 按 UTC cron `*/5 * * * *` 每 5 分钟运行一次，也可在 Actions 中通过 `workflow_dispatch` 手动运行；手动运行请选择 `master` 分支。
-- GitHub 定时任务可能排队或延迟，实际运行间隔及更新完成时间可能超过 5 分钟。
+- Excavator 按 UTC cron `17 * * * *` 每小时运行一次（北京时间每小时第 17 分），也可在 Actions 中通过 `workflow_dispatch` 手动运行；手动运行请选择 `master` 分支。`opencode2` 与 `openchamber` 只能等这个定时任务发现新版本，最长延迟约 1 小时。
+- `magpie-ai` 与 `magpie-ai-cli` 不受上面间隔影响：Upstream Watch 仍每 5 分钟检查一次，发现新版本且官方文件齐全时立即派发 Excavator，所以 Magpie 的更新仍可在数分钟内合入。若希望监听任务也降频，请一并修改 `upstream-watch.yml` 的 cron。
+- GitHub 定时任务可能排队或延迟，实际运行间隔及更新完成时间可能长于上面设定的 cron 周期。
 - 真实清单须同时正确配置 `checkver` 与 `autoupdate` 才能参与自动更新。工作流检查新版本、下载文件并计算及检查哈希，将清单更新提交到 `master`。
 - `magpie-ai` 与 `magpie-ai-cli` 均通过 Upstream Watch 和 Excavator 跟踪官方最新稳定版，使用官方发布的 `SHA256SUMS` 获取校验值，不依赖 Main/Extras 清单的更新时间。工作流只更新桶内清单，不会自动更新用户本地已安装的应用；本地更新仍需执行 `scoop update`。
 - `opencode2` 与 `openchamber` 只依赖定时 Excavator 的通用机制：按各自 `checkver` 发现新版本，再按 `autoupdate` 重写 URL、按 `hash.url` 抓取校验值。前者从 npm registry 的 `dist.integrity` 取 SHA-512，后者从官方 `latest.yml` / `latest-arm64.yml` 取 SHA-512，均不使用 Upstream Watch。上游发布不完整时清单可能失败，必要时人工修正。
