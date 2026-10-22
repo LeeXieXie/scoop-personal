@@ -1,0 +1,74 @@
+{
+    "version": "0.6.5",
+    "description": "Native desktop client for Jcode with AI coding sessions, terminals, and remote workspaces.",
+    "homepage": "https://github.com/1jehuang/jcode-desktop",
+    "license": "MIT",
+    "notes": [
+        "Includes its own jcode backend and API bridge. No separate jcode package is required; the existing jcode command is not replaced.",
+        "Upstream 0.6.5 automatically updates its portable directory after startup and periodically, with no documented disable switch. Its files may become newer than Scoop's recorded version.",
+        "Prefer 'scoop update jcode-desktop'; do not assume Scoop exclusively owns updates. This manifest does not patch the upstream updater.",
+        "The shortcut uses a generated icon from the bundled Jcode.png because this release does not embed a Windows EXE icon. Running-window taskbar behavior remains upstream-controlled.",
+        "Credentials, model access, and provider configuration must be set up separately. Existing user data is not moved or deleted."
+    ],
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/1jehuang/jcode-desktop/releases/download/desktop-v0.6.5/Jcode-0.6.5-windows-x86_64.zip",
+            "hash": "f903b4287a1995856de777d7c321baf34f277012565b5ea0c1fb2d487212c956",
+            "extract_dir": "Jcode-0.6.5-windows-x86_64"
+        },
+        "arm64": {
+            "url": "https://github.com/1jehuang/jcode-desktop/releases/download/desktop-v0.6.5/Jcode-0.6.5-windows-aarch64.zip",
+            "hash": "562e75f6fe605814f788039802ec7da50665e3f5c1967786d990df679c814209",
+            "extract_dir": "Jcode-0.6.5-windows-aarch64"
+        }
+    },
+    "pre_install": [
+        "Add-Type -AssemblyName System.Drawing",
+        "$source = [Drawing.Image]::FromFile((Join-Path $dir 'Jcode.png'))",
+        "$bitmap = New-Object Drawing.Bitmap 256, 256",
+        "$graphics = [Drawing.Graphics]::FromImage($bitmap)",
+        "$stream = New-Object IO.MemoryStream",
+        "try {",
+        "    $graphics.DrawImage($source, 0, 0, 256, 256)",
+        "    $bitmap.Save($stream, [Drawing.Imaging.ImageFormat]::Png)",
+        "    $png = $stream.ToArray()",
+        "    $writer = New-Object IO.BinaryWriter ([IO.File]::Create((Join-Path $dir 'Jcode.ico')))",
+        "    try {",
+        "        $writer.Write([byte[]]@(0,0,1,0,1,0,0,0,0,0,1,0,32,0))",
+        "        $writer.Write([uint32]$png.Length)",
+        "        $writer.Write([uint32]22)",
+        "        $writer.Write($png)",
+        "    } finally { $writer.Dispose() }",
+        "} finally { $stream.Dispose(); $graphics.Dispose(); $bitmap.Dispose(); $source.Dispose() }"
+    ],
+    "shortcuts": [
+        [
+            "jcode-desktop.exe",
+            "Jcode Desktop",
+            "",
+            "Jcode.ico"
+        ]
+    ],
+    "checkver": {
+        "url": "https://github.com/1jehuang/jcode-desktop/releases/latest",
+        "regex": "/releases/tag/desktop-v([\\d.]+)"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/1jehuang/jcode-desktop/releases/download/desktop-v$version/Jcode-$version-windows-x86_64.zip",
+                "extract_dir": "Jcode-$version-windows-x86_64",
+                "hash": {
+                    "url": "$baseurl/SHA256SUMS-windows"
+                }
+            },
+            "arm64": {
+                "url": "https://github.com/1jehuang/jcode-desktop/releases/download/desktop-v$version/Jcode-$version-windows-aarch64.zip",
+                "extract_dir": "Jcode-$version-windows-aarch64",
+                "hash": {
+                    "url": "$baseurl/SHA256SUMS-windows-aarch64"
+                }
+            }
+        }
+    }
+}

@@ -90,6 +90,15 @@ Scoop 自 `0.1.1067` 起持久化 Magpie 数据。旧配置位于 `$env:USERPROF
 
 [`jcode`](bucket/jcode.json)：[上游项目及发布页](https://github.com/1jehuang/jcode)。首次收录版本为 `0.99.1`，支持 Windows x64 和 ARM64。下载官方压缩包，以 `jcode` shim 指向对应架构的原生 EXE，不运行上游安装器、不额外生成另一套启动器。配置保留在上游默认 `~/.jcode` 或用户指定的 `JCODE_HOME`；安装时设置 `JCODE_NO_AUTO_UPDATE=1` 禁用自动自更新检查。请使用 `scoop update jcode` 而非 `jcode update`，避免绕过 Scoop 版本管理。模型服务、凭据及权限不包含在此软件包中。
 
+[`jcode-desktop`](bucket/jcode-desktop.json)：[官方项目与发布页](https://github.com/1jehuang/jcode-desktop)。当前首次收录 `0.6.5`，支持 Windows x64 / ARM64；直接解压官方 ZIP，自带 Jcode 后端和 API Bridge，不依赖独立 `jcode` 包，也不覆盖其终端命令。开始菜单入口为 `Jcode Desktop`，使用随包 PNG 生成的 ICO；上游 EXE 尚无嵌入图标，运行中任务栏图标不在此保证范围。配置默认与 CLI 共用 `~/.jcode/config.toml`，桌面状态默认位于 `%LOCALAPPDATA%/Jcode Desktop`，清单不迁移这些数据。
+
+```powershell
+scoop install personal/jcode-desktop
+scoop update jcode-desktop
+```
+
+注意：该版本桌面内置更新在启动后和每 4 小时检查并原地替换便携文件，未发现关闭开关。因此实际文件版本可能领先 Scoop 记录，不能声称由 Scoop 独占更新。校验值分别读取 `SHA256SUMS-windows` 和 `SHA256SUMS-windows-aarch64`，不使用只含其他平台的根校验文件。沿用每小时 Excavator；CI 验证两个架构的下载、Scoop 解压、三份 EXE 架构与快捷方式图标生成，不启动桌面程序。
+
 ## 维护与添加应用
 
 维护者工作副本应为 `https://github.com/LeeXieXie/scoop-personal.git` 的克隆，使用默认分支 `master`。以下本地命令均在该副本的仓库根目录运行。

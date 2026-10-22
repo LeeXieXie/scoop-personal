@@ -1,4 +1,4 @@
-param([ValidateSet('smartsearch', 'jcode')][string[]]$App = @('smartsearch', 'jcode'))
+param([ValidateSet('smartsearch', 'jcode', 'jcode-desktop')][string[]]$App = @('smartsearch', 'jcode', 'jcode-desktop'))
 
 $ErrorActionPreference = 'Stop'
 if (!$env:SCOOP_HOME) { $env:SCOOP_HOME = Convert-Path (scoop prefix scoop) }
@@ -42,7 +42,9 @@ foreach ($name in $App) {
         if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLower() -ne $platform.hash) {
             throw "Downloaded $name/$arch hash does not match the manifest."
         }
-        $checksumsUrl = $manifest.autoupdate.hash.url.Replace('$baseurl', $platform.url.Substring(0, $platform.url.LastIndexOf('/')))
+        $hashConfig = $manifest.autoupdate.hash
+        if ($manifest.autoupdate.architecture.$arch.hash) { $hashConfig = $manifest.autoupdate.architecture.$arch.hash }
+        $checksumsUrl = $hashConfig.url.Replace('$baseurl', $platform.url.Substring(0, $platform.url.LastIndexOf('/')))
         $checksums = (Invoke-WebRequest -Uri $checksumsUrl).Content
         if ($checksums -is [byte[]]) { $checksums = [Text.Encoding]::UTF8.GetString($checksums) }
         $filename = [Uri]::UnescapeDataString(([Uri]$platform.url).Segments[-1])
@@ -50,9 +52,15 @@ foreach ($name in $App) {
         if ($checksums -notmatch $checksumLine) { throw "Published checksum missing or mismatched for $filename" }
 
         $options = @{ Path = $archive; DestinationPath = $directory }
-        if ($manifest.extract_dir) { $options.ExtractDir = $manifest.extract_dir }
+        $extractDir = $manifest.extract_dir
+        if ($platform.extract_dir) { $extractDir = $platform.extract_dir }
+        if ($extractDir) { $options.ExtractDir = $extractDir }
         Expand-7zipArchive @options
-        $exe = if ($name -eq 'smartsearch') { 'SmartSearch.Desktop.exe' } else { $platform.bin[0][0] }
+        $exe = switch ($name) {
+            'smartsearch' { 'SmartSearch.Desktop.exe' }
+            'jcode-desktop' { 'jcode-desktop.exe' }
+            default { $platform.bin[0][0] }
+        }
         $executable = Join-Path $directory $exe
         if (!(Test-Path -LiteralPath $executable -PathType Leaf)) { throw "Missing executable after Scoop extraction: $executable" }
         $expectedMachine = if ($arch -eq '64bit') { 0x8664 } else { 0xAA64 }
@@ -62,6 +70,18 @@ foreach ($name in $App) {
             foreach ($file in @('Assets\smart-search.ico', 'coreclr.dll', 'SmartSearch.Desktop.dll', 'SmartSearch.Desktop.runtimeconfig.json')) {
                 if (!(Test-Path -LiteralPath (Join-Path $directory $file) -PathType Leaf)) { throw "Incomplete desktop runtime: $file" }
             }
+        } elseif ($name -eq 'jcode-desktop') {
+            foreach ($file in @('jcode.exe', 'jcode-harness-api-bridge.exe', 'Jcode.png', 'jcode-desktop.exe.manifest')) {
+                if (!(Test-Path -LiteralPath (Join-Path $directory $file) -PathType Leaf)) { throw "Incomplete desktop bundle: $file" }
+            }
+            foreach ($file in @('jcode.exe', 'jcode-harness-api-bridge.exe')) {
+                if ((Get-PeMachine (Join-Path $directory $file)) -ne $expectedMachine) { throw "Wrong backend architecture: $file" }
+            }
+            $dir = $directory
+            & ([scriptblock]::Create(($manifest.pre_install -join "`n")))
+            $icon = New-Object Drawing.Icon (Join-Path $directory 'Jcode.ico')
+            try { if ($icon.Width -ne 256 -or $icon.Height -ne 256) { throw 'Invalid desktop shortcut icon dimensions.' } }
+            finally { $icon.Dispose() }
         } elseif ($arch -eq '64bit') {
             $oldHome = $env:JCODE_HOME
             $oldUpdate = $env:JCODE_NO_AUTO_UPDATE
