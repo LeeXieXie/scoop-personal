@@ -49,6 +49,7 @@ jobs:
         run: |
           $env:SCOOP_HOME="$(Convert-Path '.\scoop_core')"
           .\my_bucket\scripts\test-zcode-installer.ps1
+          .\my_bucket\scripts\test-jcode-desktop-checkver.ps1
           .\my_bucket\bin\test.ps1
       - name: Verify changed portable release packages
         if: matrix.shell == 'pwsh'
