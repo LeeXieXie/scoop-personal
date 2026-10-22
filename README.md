@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/LeeXieXie/scoop-personal/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/LeeXieXie/scoop-personal/actions/workflows/ci.yml) [![Excavator](https://github.com/LeeXieXie/scoop-personal/actions/workflows/excavator.yml/badge.svg?branch=master)](https://github.com/LeeXieXie/scoop-personal/actions/workflows/excavator.yml)
 
-这是用于维护仓库所有者关注的 Windows 应用的个人 [Scoop](https://scoop.sh) 软件桶，不是 [Extras](https://github.com/ScoopInstaller/Extras) 的 fork 或镜像。**当前已收录 `magpie-ai`、`magpie-ai-cli`、`opencode2` 和 `openchamber`。**
+这是用于维护仓库所有者关注的 Windows 应用的个人 [Scoop](https://scoop.sh) 软件桶，不是 [Extras](https://github.com/ScoopInstaller/Extras) 的 fork 或镜像。**当前已收录 `magpie-ai`、`magpie-ai-cli`、`opencode2`、`openchamber` 和 `zcode`。**
 
 ## 使用
 
@@ -42,6 +42,15 @@ scoop update opencode2 openchamber
 
 安装前请检查清单及其调用的安装脚本，尤其是自动更新后的变更。
 
+ZCode 社区构建（Windows x64）：
+
+```powershell
+scoop install personal/zcode
+scoop update zcode
+```
+
+该包直接解压安装器，不运行 NSIS 安装程序、不注册系统协议、不修改已有用户数据。开始菜单入口为 `ZCode (Community)`，不创建可能与其他 ZCode CLI 冲突的 `zcode` 命令。若已安装官方版，请勿同时运行两个共享默认数据目录的实例。
+
 ## 已收录应用
 
 [`magpie-ai`](bucket/magpie-ai.json)：[Magpie 官方主页](https://usemagpie.ai) · [官方发布仓库](https://github.com/yetone/magpie-releases)。支持 Windows x64 和 ARM64；首次收录版本为 `0.1.1104`，当前版本以清单为准。
@@ -61,6 +70,10 @@ Scoop 自 `0.1.1067` 起持久化 Magpie 数据。旧配置位于 `$env:USERPROF
 [`openchamber`](bucket/openchamber.json)：[OpenChamber 官方主页](https://openchamber.dev) · [官方发布仓库](https://github.com/openchamber/openchamber)。基于 OpenCode AI agent 的 Agentic Development Environment（GUI），支持 Windows x64 和 ARM64；首次收录版本为 `2.3.3`，当前版本以清单为准。
 
 清单参考 [ScoopInstaller/Extras 的 openchamber.json](https://github.com/ScoopInstaller/Extras/blob/master/bucket/openchamber.json)，参考清单采用 Unlicense；应用采用 MIT 许可证。安装脚本解包 Electron 安装器内 `$PLUGINSDIR` 的 `app-*.7z` 并删除安装器残留；校验值与官方 `latest.yml` / `latest-arm64.yml` 中的 SHA-512 一致。
+
+[`zcode`](bucket/zcode.json)：[社区构建仓库](https://github.com/LeeXieXie/zcode-releases) · [上游源码](https://github.com/zai-org/ZCode)。仅支持 Windows x64；Scoop 版本采用“应用版本.UTC 源码提交时间-upstream.SHA”，确保相同应用版本下的新提交按时间更新，而不是错误地按随机 SHA 排序。下载社区 Release 的 EXE，解包内层 `app-64.7z`；校验值来自同一 Release 的 `SHA256SUMS.txt`。版本信息读取公开 Release 的 `build-provenance.json`，不依赖匿名 GitHub API 配额；沿用现有每小时 Excavator 自动更新，无需额外工作流。
+
+这是非官方、未签名构建，Computer Use 不可用；其他功能的资源完整性检查不等于端到端功能验证。上游仍有第三方许可材料缺口，请先阅读 Release 附带声明。自动更新已在构建中关闭，更新由 Scoop 管理；不迁移或删除上游默认位置的用户数据。
 
 ## 维护与添加应用
 
