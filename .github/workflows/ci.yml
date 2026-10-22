@@ -50,3 +50,12 @@ jobs:
           $env:SCOOP_HOME="$(Convert-Path '.\scoop_core')"
           .\my_bucket\scripts\test-zcode-installer.ps1
           .\my_bucket\bin\test.ps1
+      - name: Verify changed portable release packages
+        if: matrix.shell == 'pwsh'
+        run: |
+          $env:SCOOP_HOME="$(Convert-Path '.\scoop_core')"
+          $changed = @(git -C .\my_bucket diff --name-only HEAD~1 HEAD)
+          $apps = @('smartsearch', 'jcode') | Where-Object { $changed -contains "bucket/$_.json" }
+          if ($apps) {
+            .\my_bucket\scripts\test-portable-packages.ps1 -App $apps
+          }

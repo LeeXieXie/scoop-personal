@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/LeeXieXie/scoop-personal/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/LeeXieXie/scoop-personal/actions/workflows/ci.yml) [![Excavator](https://github.com/LeeXieXie/scoop-personal/actions/workflows/excavator.yml/badge.svg?branch=master)](https://github.com/LeeXieXie/scoop-personal/actions/workflows/excavator.yml)
 
-这是用于维护仓库所有者关注的 Windows 应用的个人 [Scoop](https://scoop.sh) 软件桶，不是 [Extras](https://github.com/ScoopInstaller/Extras) 的 fork 或镜像。**当前已收录 `magpie-ai`、`magpie-ai-cli`、`opencode2`、`openchamber` 和 `zcode`。**
+这是用于维护仓库所有者关注的 Windows 应用的个人 [Scoop](https://scoop.sh) 软件桶，不是 [Extras](https://github.com/ScoopInstaller/Extras) 的 fork 或镜像。**当前已收录 `magpie-ai`、`magpie-ai-cli`、`opencode2`、`openchamber`、`zcode`、`smartsearch` 和 `jcode`。**
 
 ## 使用
 
@@ -51,6 +51,17 @@ scoop update zcode
 
 该包直接解压安装器，不运行 NSIS 安装程序、不注册系统协议、不修改已有用户数据。开始菜单入口为 `ZCode (Community)`，不创建可能与其他 ZCode CLI 冲突的 `zcode` 命令。若已安装官方版，请勿同时运行两个共享默认数据目录的实例。
 
+Smart Search 桌面版与 Jcode（均支持 Windows x64 / ARM64）：
+
+```powershell
+scoop install personal/smartsearch
+scoop install personal/jcode
+jcode --version
+scoop update smartsearch jcode
+```
+
+`smartsearch` 是图形桌面管理器，不会替换已有 npm 版 `smart-search` 命令；独立搜索 CLI 可保留现有安装，或通过应用设置页配置。`jcode` 创建同名终端命令，模型认证需另行配置；若已有其他渠道安装的 Jcode，请先核对命令来源。
+
 ## 已收录应用
 
 [`magpie-ai`](bucket/magpie-ai.json)：[Magpie 官方主页](https://usemagpie.ai) · [官方发布仓库](https://github.com/yetone/magpie-releases)。支持 Windows x64 和 ARM64；首次收录版本为 `0.1.1104`，当前版本以清单为准。
@@ -74,6 +85,10 @@ Scoop 自 `0.1.1067` 起持久化 Magpie 数据。旧配置位于 `$env:USERPROF
 [`zcode`](bucket/zcode.json)：[社区构建仓库](https://github.com/LeeXieXie/zcode-releases) · [上游源码](https://github.com/zai-org/ZCode)。仅支持 Windows x64；Scoop 版本采用“应用版本.UTC 源码提交时间-upstream.SHA”，确保相同应用版本下的新提交按时间更新，而不是错误地按随机 SHA 排序。下载社区 Release 的 EXE，解包内层 `app-64.7z`；校验值来自同一 Release 的 `SHA256SUMS.txt`。版本信息读取公开 Release 的 `build-provenance.json`，不依赖匿名 GitHub API 配额；沿用现有每小时 Excavator 自动更新，无需额外工作流。
 
 这是非官方、未签名构建，Computer Use 不可用；其他功能的资源完整性检查不等于端到端功能验证。上游仍有第三方许可材料缺口，请先阅读 Release 附带声明。自动更新已在构建中关闭，更新由 Scoop 管理；不迁移或删除上游默认位置的用户数据。
+
+[`smartsearch`](bucket/smartsearch.json)：[上游项目及发布页](https://github.com/konbakuyomu/smartsearch)。首次收录版本为 `0.1.31`，支持 Windows 10 2004（build 19041）及以上系统、x64 和 ARM64。下载官方 Velopack **完整包**，直接解压 `lib/app`，不运行 Setup、不使用增量包；开始菜单入口为 `Smart Search`，明确指定随包图标。该桌面包自包含 .NET 运行时，但不包含独立 `smart-search` CLI；提供商 API Key、技能和 CLI 路径需在应用中配置。散包未注册为 Velopack 安装，应用内自动更新不接管此安装；使用 Scoop 更新。清单不移动或删除用户配置。
+
+[`jcode`](bucket/jcode.json)：[上游项目及发布页](https://github.com/1jehuang/jcode)。首次收录版本为 `0.99.1`，支持 Windows x64 和 ARM64。下载官方压缩包，以 `jcode` shim 指向对应架构的原生 EXE，不运行上游安装器、不额外生成另一套启动器。配置保留在上游默认 `~/.jcode` 或用户指定的 `JCODE_HOME`；安装时设置 `JCODE_NO_AUTO_UPDATE=1` 禁用自动自更新检查。请使用 `scoop update jcode` 而非 `jcode update`，避免绕过 Scoop 版本管理。模型服务、凭据及权限不包含在此软件包中。
 
 ## 维护与添加应用
 
@@ -110,17 +125,20 @@ Get-FileHash .\downloaded-installer.exe -Algorithm SHA512
 
 GitHub CI 会检出 Scoop，安装并缓存测试依赖，分别在 `powershell` 和 `pwsh` 下运行测试。
 
+`smartsearch` 或 `jcode` 清单发生变化时，PowerShell 7 CI 还会下载两个架构的实际发布包，核对随 Release 发布的 SHA256、使用 Scoop 解压函数验证文件布局、检查 EXE 架构；Jcode x64 额外在隔离配置目录中执行 `--version`。这不替代桌面完整功能或模型会话验证。
+
 可通过[软件收录申请](https://github.com/LeeXieXie/scoop-personal/issues/new?template=package-request.yml)记录想收录的应用；申请只用于跟踪，不会自动转换为清单，也不保证收录。
 
 ## 自动更新
 
 - Upstream Watch 按 UTC cron `2-57/5 * * * *` 每 5 分钟在 Linux runner 上检查官方最新稳定版；任一 Magpie 清单版本不一致，且 GUI、CLI 的 x64/ARM64 文件及 `SHA256SUMS` 全部上传完成后，才触发现有 Excavator。文件未齐时等待下一次检查；检查时发现 Excavator 已在运行/排队则跳过，无新版本时不启动 Excavator。检查与触发之间若恰逢手动或定时启动 Excavator，可能重复排队；已有并发锁保证串行执行。
-- Excavator 按 UTC cron `17 * * * *` 每小时运行一次（北京时间每小时第 17 分），也可在 Actions 中通过 `workflow_dispatch` 手动运行；手动运行请选择 `master` 分支。`opencode2` 与 `openchamber` 只能等这个定时任务发现新版本，最长延迟约 1 小时。
+- Excavator 按 UTC cron `17 * * * *` 每小时运行一次（北京时间每小时第 17 分），也可在 Actions 中通过 `workflow_dispatch` 手动运行；手动运行请选择 `master` 分支。`opencode2`、`openchamber`、`smartsearch` 与 `jcode` 由这个定时任务发现新版本，通常延迟不超过一个调度周期。
 - `magpie-ai` 与 `magpie-ai-cli` 不受上面间隔影响：Upstream Watch 仍每 5 分钟检查一次，发现新版本且官方文件齐全时立即派发 Excavator，所以 Magpie 的更新仍可在数分钟内合入。若希望监听任务也降频，请一并修改 `upstream-watch.yml` 的 cron。
 - GitHub 定时任务可能排队或延迟，实际运行间隔及更新完成时间可能长于上面设定的 cron 周期。
 - 真实清单须同时正确配置 `checkver` 与 `autoupdate` 才能参与自动更新。工作流检查新版本、下载文件并计算及检查哈希，将清单更新提交到 `master`。
 - `magpie-ai` 与 `magpie-ai-cli` 均通过 Upstream Watch 和 Excavator 跟踪官方最新稳定版，使用官方发布的 `SHA256SUMS` 获取校验值，不依赖 Main/Extras 清单的更新时间。工作流只更新桶内清单，不会自动更新用户本地已安装的应用；本地更新仍需执行 `scoop update`。
 - `opencode2` 与 `openchamber` 只依赖定时 Excavator 的通用机制：按各自 `checkver` 发现新版本，再按 `autoupdate` 重写 URL、按 `hash.url` 抓取校验值。前者从 npm registry 的 `dist.integrity` 取 SHA-512，后者从官方 `latest.yml` / `latest-arm64.yml` 取 SHA-512，均不使用 Upstream Watch。上游发布不完整时清单可能失败，必要时人工修正。
+- `smartsearch` 与 `jcode` 同样沿用每小时 Excavator，分别从官方 Release 的 `SHA256SUMS.txt` / `SHA256SUMS` 读取 SHA256。Smart Search 使用完整 nupkg，Jcode 使用各架构 tar.gz；若任一架构产物未齐或校验失败，不应将其当作可安装的新版本。
 - Upstream Watch 使用标准 `GITHUB_TOKEN` 的 `contents: read` 和 `actions: write` 权限调用已有 `workflow_dispatch`，无需额外配置 PAT；可手动在 `master` 分支运行监听任务。
 - `magpie-ai` 安装 `magpie.exe` 并持久化 `data` 目录。
 - `magpie-ai` 首次初始化时，仅在不存在已持久化的 `settings.json` 时设置 `noAutoUpdate = true`，关闭应用自更新，由 Scoop 负责更新；不会覆盖已持久化的设置。
