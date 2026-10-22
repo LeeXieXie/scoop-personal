@@ -48,4 +48,5 @@ jobs:
       - name: Run tests
         run: |
           $env:SCOOP_HOME="$(Convert-Path '.\scoop_core')"
+          .\my_bucket\scripts\test-zcode-installer.ps1
           .\my_bucket\bin\test.ps1

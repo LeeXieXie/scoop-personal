@@ -19,7 +19,7 @@
         "script": [
             "$payload = @(Get-ChildItem -LiteralPath (Join-Path $dir '$PLUGINSDIR') -Filter 'app-64.7z' -File)",
             "if ($payload.Count -ne 1) { throw 'Expected exactly one x64 NSIS application payload.' }",
-            "$payload[0] | Expand-7zipArchive -DestinationPath $dir -Removal",
+            "Expand-7zipArchive -Path $payload[0].FullName -DestinationPath $dir -Removal",
             "if (!(Test-Path -LiteralPath (Join-Path $dir 'ZCode.exe') -PathType Leaf)) { throw 'ZCode.exe missing after extraction.' }",
             "$root = [IO.Path]::GetFullPath($dir).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar",
             "foreach ($name in @('$PLUGINSDIR', '$R0', 'Uninstall ZCode.exe')) {",
