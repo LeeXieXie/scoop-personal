@@ -1,0 +1,10 @@
+﻿{
+    "url":  "https://github.com/LeeXieXie/zcode-releases/releases/latest/download/build-provenance.json",
+    "script":  [
+                   "$release = $page | ConvertFrom-Json",
+                   "if ($release.upstream.repository -ne \"zai-org/ZCode\" -or $release.upstream.sha -notmatch \"^[a-f0-9]{40}$\" -or $release.upstream.version -notmatch \"^\\d+\\.\\d+\\.\\d+$\") { throw \"Invalid ZCode release provenance.\" }",
+                   "$stamp = ([DateTimeOffset]::Parse($release.upstream.date)).UtcDateTime.ToString(\"yyyyMMddHHmmss\")",
+                   "\"$($release.upstream.version).$stamp-upstream.$($release.upstream.sha.Substring(0, 12))\""
+               ],
+    "regex":  "^((?\u003cappversion\u003e\\d+\\.\\d+\\.\\d+)\\.\\d{14}-upstream\\.(?\u003ccommit\u003e[a-f0-9]{12}))$"
+}

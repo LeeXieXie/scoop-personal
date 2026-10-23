@@ -89,7 +89,7 @@ Scoop 自 `0.1.1067` 起持久化 Magpie 数据。旧配置位于 `$env:USERPROF
 
 清单参考 [ScoopInstaller/Extras 的 openchamber.json](https://github.com/ScoopInstaller/Extras/blob/master/bucket/openchamber.json)，参考清单采用 Unlicense；应用采用 MIT 许可证。安装脚本解包 Electron 安装器内 `$PLUGINSDIR` 的 `app-*.7z` 并删除安装器残留；校验值与官方 `latest.yml` / `latest-arm64.yml` 中的 SHA-512 一致。
 
-[`zcode`](bucket/zcode.json)：[社区构建仓库](https://github.com/LeeXieXie/zcode-releases) · [上游源码](https://github.com/zai-org/ZCode)。仅支持 Windows x64；Scoop 版本采用“应用版本.UTC 源码提交时间-upstream.SHA”，确保相同应用版本下的新提交按时间更新，而不是错误地按随机 SHA 排序。下载社区 Release 的 EXE，解包内层 `app-64.7z`；校验值来自同一 Release 的 `SHA256SUMS.txt`。版本信息读取公开 Release 的 `build-provenance.json`，不依赖匿名 GitHub API 配额；沿用现有每 30 分钟一次的 Excavator 自动更新，无需额外工作流。
+[`zcode`](bucket/zcode.json)：[社区构建仓库](https://github.com/LeeXieXie/zcode-releases) · [上游源码](https://github.com/zai-org/ZCode)。仅支持 Windows x64；Scoop 版本采用“应用版本.UTC 源码提交时间-upstream.SHA”，确保相同应用版本下的新提交按时间更新，而不是错误地按随机 SHA 排序。下载社区 Release 的 EXE，解包内层 `app-64.7z`；校验值来自同一 Release 的 `SHA256SUMS.txt`。版本信息读取公开 Release 的 `build-provenance.json`，不依赖匿名 GitHub API 配额；由全包 Upstream Watch 检查更新，并由每 30 分钟一次的 Excavator 兜底，无需单独的 ZCode 工作流。
 
 这是非官方、未签名构建，Computer Use 不可用；其他功能的资源完整性检查不等于端到端功能验证。上游仍有第三方许可材料缺口，请先阅读 Release 附带声明。自动更新已在构建中关闭，更新由 Scoop 管理；不迁移或删除上游默认位置的用户数据。
 
@@ -104,13 +104,13 @@ scoop install personal/jcode-desktop
 scoop update jcode-desktop
 ```
 
-注意：该版本桌面内置更新在启动后和每 4 小时检查并原地替换便携文件，未发现关闭开关。因此实际文件版本可能领先 Scoop 记录，不能声称由 Scoop 独占更新。校验值分别读取 `SHA256SUMS-windows` 和 `SHA256SUMS-windows-aarch64`，不使用只含其他平台的根校验文件。沿用每 30 分钟一次的 Excavator；CI 验证两个架构的下载、Scoop 解压、三份 EXE 架构与快捷方式图标生成，不启动桌面程序。
+注意：该版本桌面内置更新在启动后和每 4 小时检查并原地替换便携文件，未发现关闭开关。因此实际文件版本可能领先 Scoop 记录，不能声称由 Scoop 独占更新。校验值分别读取 `SHA256SUMS-windows` 和 `SHA256SUMS-windows-aarch64`，不使用只含其他平台的根校验文件。参与全包 Upstream Watch，并沿用每 30 分钟一次的 Excavator 兜底；CI 验证两个架构的下载、Scoop 解压、三份 EXE 架构与快捷方式图标生成，不启动桌面程序。
 
 版本检测读取公开 `releases.atom` 的首个版本条目，而不是排除测试版的 `/releases/latest`；保留完整测试版后缀用于版本比较、下载和解压目录。测试版本可能不稳定，更新前请备份重要配置与会话。此规则仅用于 `jcode-desktop`，不改变其他软件包的稳定版策略。
 
 [`pebrel`](bucket/pebrel.json)：[官方源码与发布仓库](https://github.com/Kuddev/pebrel)。GPU 加速终端、SSH 工作区与 AI CLI 会话管理工具，采用官方 Windows x64 / ARM64 便携 ZIP；首次收录版本为 `2.2.2`，当前版本以清单为准。提供 `pebrel` 命令和 Pebrel 开始菜单快捷方式，应用采用 GPL-3.0 许可证。
 
-配置保存在 `%APPDATA%\Pebrel`，不位于 Scoop 安装目录，无需额外的 `persist` 或自动迁移脚本。上游首次启动会配置 AI CLI 通知集成，可通过 `pebrel setup-ai --remove` 撤销。请使用 Scoop 更新，避免使用应用内更新安装器。清单通过 GitHub 最新稳定版检测更新，并从官方 `SHA256SUMS` 获取两个架构的 SHA-256 校验值，随每 30 分钟一次的 Excavator 任务更新。
+配置保存在 `%APPDATA%\Pebrel`，不位于 Scoop 安装目录，无需额外的 `persist` 或自动迁移脚本。上游首次启动会配置 AI CLI 通知集成，可通过 `pebrel setup-ai --remove` 撤销。请使用 Scoop 更新，避免使用应用内更新安装器。清单通过 GitHub 最新稳定版检测更新，并从官方 `SHA256SUMS` 获取两个架构的 SHA-256 校验值，参与全包 Upstream Watch，并由每 30 分钟一次的 Excavator 任务兜底。
 
 ## 维护与添加应用
 
@@ -147,21 +147,29 @@ Get-FileHash .\downloaded-installer.exe -Algorithm SHA512
 
 GitHub CI 会检出 Scoop，安装并缓存测试依赖，分别在 `powershell` 和 `pwsh` 下运行测试。
 
+全包上游监听使用 Python 标准库，可在仓库根目录运行离线回归与真实只读检查；默认不会修改清单或派发更新：
+
+```powershell
+python -m unittest discover -s scripts -p "test_upstream_watch.py"
+python scripts/upstream_watch.py
+```
+
 `smartsearch` 或 `jcode` 清单发生变化时，PowerShell 7 CI 还会下载两个架构的实际发布包，核对随 Release 发布的 SHA256、使用 Scoop 解压函数验证文件布局、检查 EXE 架构；Jcode x64 额外在隔离配置目录中执行 `--version`。这不替代桌面完整功能或模型会话验证。
 
 可通过[软件收录申请](https://github.com/LeeXieXie/scoop-personal/issues/new?template=package-request.yml)记录想收录的应用；申请只用于跟踪，不会自动转换为清单，也不保证收录。
 
 ## 自动更新
 
-- Upstream Watch 配置为按 UTC cron `2-57/5 * * * *` 每 5 分钟在 Linux runner 上检查官方最新稳定版；任一 Magpie 清单版本不一致，且 GUI、CLI 的 x64/ARM64 文件及 `SHA256SUMS` 全部上传完成后，才触发现有 Excavator。文件未齐时等待下一次检查；检查时发现 Excavator 已在运行/排队则跳过，无新版本时不启动 Excavator。检查与触发之间若恰逢手动或定时启动 Excavator，可能重复排队；已有并发锁保证串行执行。
+- Upstream Watch 配置为按 UTC cron `2-57/5 * * * *` 每 5 分钟在 Linux runner 上检查 `bucket/*.json` 中的全部软件包，目前共 9 个，不再只检查 Magpie。检测规则来自各清单的 `checkver` 和 `autoupdate`，不另存一份版本号；GitHub 包按各自发布源检查，`opencode2` 查询 npm，`jcode-desktop` 保留 Atom 首条发布含测试版的规则，`zcode` 从构建 provenance 生成带 UTC 时间戳的版本。
 - Excavator 按 UTC cron `17,47 * * * *` 配置为每 30 分钟运行一次（北京时间每小时第 17、47 分），避开整点高峰；也可在 Actions 中通过 `workflow_dispatch` 手动运行，手动运行请选择 `master` 分支。`opencode2`、`openchamber`、`zcode`、`smartsearch`、`jcode`、`jcode-desktop` 与 `pebrel` 均由这个定时任务检查各自上游的新版本。
-- `magpie-ai` 与 `magpie-ai-cli` 除上述全桶检查外，仍保留 Upstream Watch 的 5 分钟检查计划；监听任务实际运行时，发现新版本且官方文件齐全就派发 Excavator，无需等到下一个全桶检查时刻。若希望监听任务也降频，请一并修改 `upstream-watch.yml` 的 cron。
+- 监听仅在上游版本更新且清单要求的各架构下载包、校验文件等产物就绪时派发；Magpie 继续要求 GUI、CLI 两个架构共四份 EXE 与 `SHA256SUMS` 全部上传完成。监听只检查发布元数据，不代替 Excavator 的实际下载和哈希校验。单包检测失败不阻止其他包继续检查，有就绪更新仍可派发，但失败会记录并令监听任务报错；未知规则也会显式报错，不能静默漏包。新增清单使用监听器尚不支持的 `checkver` 时需补适配，ZCode 的特殊脚本规则变动需同步审核适配快照。
+- 全部包均参与上游监听，不再将非 Magpie 软件限制为仅靠半小时定时检查。监听会逐包报告当前版本、上游版本与检测结果；无新版本时不启动 Excavator。检查时发现 Excavator 已在运行/排队则跳过；检查与触发之间若恰逢其他入口启动 Excavator，仍可能重复排队，已有并发锁保证串行执行。
 - GitHub 定时任务可能排队、延迟或丢弃，实际运行间隔及更新完成时间可能长于上面设定的 cron 周期；30 分钟和 5 分钟均为计划检查频率，不保证准点触发或在该时间内完成更新。上游发布后即时触发需要上游工作流或 webhook 主动向本仓库派发事件，仅在本仓库添加 `release` 触发器无法监听其他仓库的发布。
 - 真实清单须同时正确配置 `checkver` 与 `autoupdate` 才能参与自动更新。工作流检查新版本、下载文件并计算及检查哈希，将清单更新提交到 `master`。
 - `magpie-ai` 与 `magpie-ai-cli` 均通过 Upstream Watch 和 Excavator 跟踪官方最新稳定版，使用官方发布的 `SHA256SUMS` 获取校验值，不依赖 Main/Extras 清单的更新时间。工作流只更新桶内清单，不会自动更新用户本地已安装的应用；本地更新仍需执行 `scoop update`。
-- `pebrel` 只依赖定时 Excavator，使用官方便携 ZIP 和 `SHA256SUMS`，不使用 Upstream Watch。
-- `opencode2` 与 `openchamber` 只依赖定时 Excavator 的通用机制：按各自 `checkver` 发现新版本，再按 `autoupdate` 重写 URL、按 `hash.url` 抓取校验值。前者从 npm registry 的 `dist.integrity` 取 SHA-512，后者从官方 `latest.yml` / `latest-arm64.yml` 取 SHA-512，均不使用 Upstream Watch。上游发布不完整时清单可能失败，必要时人工修正。
-- `smartsearch` 与 `jcode` 同样沿用每 30 分钟一次的 Excavator，分别从官方 Release 的 `SHA256SUMS.txt` / `SHA256SUMS` 读取 SHA256。Smart Search 使用完整 nupkg，Jcode 使用各架构 tar.gz；若任一架构产物未齐或校验失败，不应将其当作可安装的新版本。
+- `pebrel` 同时参与 Upstream Watch 与定时 Excavator，使用官方便携 ZIP 和 `SHA256SUMS`。
+- `opencode2` 与 `openchamber` 同时参与 Upstream Watch 与定时 Excavator：监听发现新版本后派发更新，Excavator 再按各自 `checkver` / `autoupdate` 重写 URL、按 `hash.url` 抓取校验值。前者从 npm registry 的 `dist.integrity` 取 SHA-512，后者从官方 `latest.yml` / `latest-arm64.yml` 取 SHA-512。监听不替代实际下载和哈希校验，上游发布不完整时仍可能失败，必要时人工修正。
+- `smartsearch` 与 `jcode` 同时参与 Upstream Watch，并沿用每 30 分钟一次的 Excavator 兜底，分别从官方 Release 的 `SHA256SUMS.txt` / `SHA256SUMS` 读取 SHA256。Smart Search 使用完整 nupkg，Jcode 使用各架构 tar.gz；若任一架构产物未齐或校验失败，不应将其当作可安装的新版本。
 - Upstream Watch 使用标准 `GITHUB_TOKEN` 的 `contents: read` 和 `actions: write` 权限调用已有 `workflow_dispatch`，无需额外配置 PAT；可手动在 `master` 分支运行监听任务。
 - `magpie-ai` 安装 `magpie.exe` 并持久化 `data` 目录。
 - `magpie-ai` 首次初始化时，仅在不存在已持久化的 `settings.json` 时设置 `noAutoUpdate = true`，关闭应用自更新，由 Scoop 负责更新；不会覆盖已持久化的设置。
