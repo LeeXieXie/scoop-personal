@@ -5,3 +5,5 @@ page.html
 checkver-*.html
 __pycache__/
 *.py[cod]
+/deploy/server-timer/github-token
+/deploy/server-timer/.env

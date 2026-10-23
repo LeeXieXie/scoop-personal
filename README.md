@@ -177,6 +177,12 @@ python scripts/upstream_watch.py
 - 标准 `GITHUB_TOKEN` 的机器人提交不会触发 `push` CI。手动与定时 Excavator 成功后，通过 `workflow_run` 接续测试；监听工作流派发的机器人 Excavator 成功后，显式派发 `workflow_dispatch` 触发 CI。Excavator 失败时不会启动测试。
 - 公开仓库连续 60 天无活动时，GitHub 可能禁用定时工作流；需要时到 Actions 中重新启用。
 
+## 常在线服务器部署
+
+服务器版使用 Python 标准库直接调用 GitHub API，每 30 分钟唤醒现有全包监听，不依赖 Windows 开机或 `gh` 登录，也不开放入站端口。提供 Docker Compose 常驻进程及 Linux systemd timer 两种部署方式，包含超时、有限重试、队列防重与结构化日志。
+
+程序入口为 [`scripts/server_upstream_timer.py`](scripts/server_upstream_timer.py)，安装、凭据权限、运行检查及卸载步骤见 [`deploy/server-timer/README.md`](deploy/server-timer/README.md)。凭据只放在服务器环境或私有文件，不提交到仓库。部署文件交付不等于已安装到服务器；服务器上观察两次自然成功运行后，再禁用下面的 Windows 任务，避免多个独立计时器重复唤醒。
+
 ## 独立定时触发（Windows 维护者工作站）
 
 GitHub cron 曾在实际观察中超过 90 分钟未触发半小时任务。维护者可用 Windows 任务计划程序独立计时，每 30 分钟调用现有全包 Upstream Watch，原 GitHub cron 继续兜底：

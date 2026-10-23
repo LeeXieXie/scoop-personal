@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Scoop Personal upstream check every 30 minutes
+
+[Timer]
+OnCalendar=*-*-* *:17,47:00 UTC
+Persistent=true
+AccuracySec=1s
+Unit=scoop-upstream.service
+
+[Install]
+WantedBy=timers.target

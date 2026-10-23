@@ -1,0 +1,28 @@
+[Unit]
+Description=Trigger Scoop Personal full-bucket upstream check
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=scoop-timer
+Group=scoop-timer
+LoadCredential=github-token:/etc/scoop-upstream-timer/github-token
+Environment=GH_TOKEN_FILE=%d/github-token
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 /opt/scoop-upstream-timer/server_upstream_timer.py --once
+TimeoutStartSec=300
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+StandardOutput=journal
+StandardError=journal

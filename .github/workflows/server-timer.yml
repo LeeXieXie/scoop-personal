@@ -1,0 +1,39 @@
+name: Server Timer
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - 'scripts/server_upstream_timer.py'
+      - 'scripts/test_server_upstream_timer.py'
+      - 'deploy/server-timer/**'
+      - '.github/workflows/server-timer.yml'
+  pull_request:
+    paths:
+      - 'scripts/server_upstream_timer.py'
+      - 'scripts/test_server_upstream_timer.py'
+      - 'deploy/server-timer/**'
+      - '.github/workflows/server-timer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run server timer regression tests
+        run: python3 -m unittest discover -s scripts -p 'test_server_upstream_timer.py' -v
+      - name: Validate systemd and Compose configuration
+        run: |
+          systemd-analyze verify deploy/server-timer/scoop-upstream.service deploy/server-timer/scoop-upstream.timer
+          docker compose -f deploy/server-timer/compose.yml config --quiet
+      - name: Build deployment image and verify CLI
+        run: |
+          docker build -f deploy/server-timer/Dockerfile -t scoop-server-timer:test .
+          docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges scoop-server-timer:test --help

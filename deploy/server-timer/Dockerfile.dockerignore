@@ -1,0 +1,5 @@
+# Allowlist the single public source file needed for this image.
+**
+!scripts/
+scripts/**
+!scripts/server_upstream_timer.py
