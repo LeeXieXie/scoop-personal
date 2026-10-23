@@ -177,6 +177,21 @@ python scripts/upstream_watch.py
 - 标准 `GITHUB_TOKEN` 的机器人提交不会触发 `push` CI。手动与定时 Excavator 成功后，通过 `workflow_run` 接续测试；监听工作流派发的机器人 Excavator 成功后，显式派发 `workflow_dispatch` 触发 CI。Excavator 失败时不会启动测试。
 - 公开仓库连续 60 天无活动时，GitHub 可能禁用定时工作流；需要时到 Actions 中重新启用。
 
+## 独立定时触发（Windows 维护者工作站）
+
+GitHub cron 曾在实际观察中超过 90 分钟未触发半小时任务。维护者可用 Windows 任务计划程序独立计时，每 30 分钟调用现有全包 Upstream Watch，原 GitHub cron 继续兜底：
+
+```powershell
+.\scripts\windows-upstream-timer.ps1 -Install
+Get-ScheduledTaskInfo -TaskName ScoopPersonalUpstreamWatch
+# 撤销本机任务，不删除日志或更改 GitHub 工作流：
+.\scripts\windows-upstream-timer.ps1 -Uninstall
+```
+
+此任务以当前用户、非提权、交互式登录方式运行，不保存登录密码，也不把 GitHub 凭据提交或上传给第三方；调用已安装 GitHub CLI 的现有 keyring 登录。**仅在这台电脑开机、联网且当前用户已登录时有效**，休眠、注销、断网期间不保证运行，恢复后由任务计划程序补启动。仓库路径和 `gh.exe` 路径变更后需重新安装任务。脚本会清除当前进程继承的 `GH_TOKEN` / `GITHUB_TOKEN` 后复用 keyring，避免其他应用的环境 token 干扰。
+
+运行记录位于 `%LOCALAPPDATA%\ScoopPersonalUpstreamWatch\trigger.log`（超过 1 MiB 保留一份前轮日志）。已有未完成的 Watch 会跳过重复派发。成功日志表示 GitHub 接受触发请求，仍需在 Actions 核实逐包检测及更新结果；不能保证 runner 准点完成。如需电脑关机后也持续运行，应将相同 API 调用移至独立常在线的调度服务。
+
 ## 参考与许可
 
 清单编写参见 [App Manifests](https://github.com/ScoopInstaller/Scoop/wiki/App-Manifests)，自动更新规则参见 [Autoupdate](https://github.com/ScoopInstaller/Scoop/wiki/Autoupdate)。
