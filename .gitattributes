@@ -1,7 +1,3 @@
-# Default Scoop bucket files use CRLF in the working tree.
-# Server deployment files and Python entry points below explicitly use LF.
-# The Git index/repository stores normalized LF text.
+# Scoop's repository-wide tests require CRLF in checked-out text files.
+# Git stores normalized LF text. Server deployment files are also tested on Linux.
 * text=auto eol=crlf
-/deploy/server-timer/* text eol=lf
-/scripts/server_upstream_timer.py text eol=lf
-/scripts/test_server_upstream_timer.py text eol=lf
