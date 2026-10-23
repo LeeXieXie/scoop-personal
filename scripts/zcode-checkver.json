@@ -1,4 +1,4 @@
-﻿{
+{
     "url":  "https://github.com/LeeXieXie/zcode-releases/releases/latest/download/build-provenance.json",
     "script":  [
                    "$release = $page | ConvertFrom-Json",
