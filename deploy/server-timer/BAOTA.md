@@ -1,6 +1,6 @@
 # 宝塔面板部署：每 3–5 分钟触发全包检测
 
-使用已发布的预构建镜像 `ghcr.io/leexiexie/scoop-upstream-timer:1.0.0`，支持 Linux amd64 / arm64，已通过免登录拉取和容器运行验证。不需要下载脚本、创建挂载文件、本地构建或创建 `.env`。这不代表已在你的宝塔服务器安装。
+编排固定预构建镜像为 `ghcr.io/leexiexie/scoop-upstream-timer:1.0.1`，目标平台为 Linux amd64 / arm64。请等待该版本发布流程成功后部署，此处不声称新镜像已完成拉取或容器运行验证。不需要下载脚本、创建挂载文件、本地构建或创建 `.env`。这不代表已在你的宝塔服务器安装。
 
 ## 创建编排
 
@@ -21,24 +21,35 @@ Token 使用 fine-grained PAT，仅授权 `LeeXieXie/scoop-personal`，仓库权
 
 ## 间隔与参数修改
 
-默认每 5 分钟（300 秒）触发一次：
+默认每 3 分钟（180 秒）触发一次：
 
 ```yaml
-command: ["--interval", "300"]
+command: ["--interval", "180"]
 ```
 
-要改成每 3 分钟，将 `300` 改为 `180`。镜像 ENTRYPOINT 已包含 Python 脚本，不要在 command 中重复添加 Python 或脚本路径。修改参数或 Token 后，使用宝塔的**重新部署/重建容器**应用配置，仅重启旧容器不会更新环境变量和启动参数。只保留一个调度器。
+要改成每 5 分钟，将 `180` 改为 `300`。镜像 ENTRYPOINT 已包含 Python 脚本，不要在 command 中重复添加 Python 或脚本路径。修改参数或 Token 后，使用宝塔的**重新部署/重建容器**应用配置，仅重启旧容器不会更新环境变量和启动参数。只保留一个调度器。
+
+## 从旧版本升级
+
+旧编排使用 `1.0.0` 镜像，且显式 `command: ["--interval", "300"]` 会覆盖新镜像的默认间隔。升级时同时把 `image` 改为 `ghcr.io/leexiexie/scoop-upstream-timer:1.0.1`，把 `command` 改为 `["--interval", "180"]`。等待新镜像发布成功后，在宝塔强制拉取镜像并重新部署/重建容器，**仅重启旧容器不足以升级镜像或参数**。命令行等效操作（在保存编排的目录执行）：
+
+```sh
+docker compose pull scheduler
+docker compose up -d --force-recreate scheduler
+```
+
+不要将包含真实 Token 的编排复制到聊天或提交到仓库。升级后检查日志中的 `interval_seconds` 为 `180`，并观察两次自然周期。
 
 ## 确认运行
 
 在宝塔查看 `scoop-upstream-timer` 容器日志：
 
-- `interval_seconds`：应为 `300` 或 `180`。
+- `interval_seconds`：默认应为 `180`，选择 5 分钟时为 `300`。
 - `dispatched`：GitHub 已接受触发请求，不等于软件已更新成功。
 - `busy`：已有未完成检测，跳过重复触发，属于正常情况。
 - `cycle_failed`：检查网络、Token 权限/有效期及 GitHub 限流。
 
-再到仓库 **Actions → Upstream Watch** 查看逐包结果，发现新版时检查 Excavator 和后续 CI。没有新版时不启动 Excavator 是正常行为。首次启动立即检查，后续按间隔运行，网络中断、排队或已有任务未完成时不能保证每 3–5 分钟完成更新。5 分钟最多约 288 次触发请求/日，3 分钟约 480 次，可能增加 Actions 使用量，建议先用 5 分钟。
+再到仓库 **Actions → Upstream Watch** 查看逐包结果，发现新版时检查 Excavator 和后续 CI。没有新版时不启动 Excavator 是正常行为。首次启动立即检查，后续按间隔运行，网络中断、排队或已有任务未完成时不能保证每 3–5 分钟完成更新。5 分钟最多约 288 次触发请求/日，3 分钟约 480 次，可能增加 Actions 使用量，默认使用 3 分钟，如需降低使用量可选 5 分钟。
 
 ## 新增包与切换
 

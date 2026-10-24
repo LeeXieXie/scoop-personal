@@ -1,8 +1,8 @@
 [Unit]
-Description=Run Scoop Personal upstream check every 5 minutes
+Description=Run Scoop Personal upstream check every 3 minutes
 
 [Timer]
-OnCalendar=*-*-* *:02/5:00 UTC
+OnCalendar=*-*-* *:02/3:00 UTC
 Persistent=true
 AccuracySec=1s
 Unit=scoop-upstream.service

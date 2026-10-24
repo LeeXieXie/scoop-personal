@@ -31,7 +31,7 @@ class Config:
     repo: str = 'LeeXieXie/scoop-personal'
     workflow: str = 'upstream-watch.yml'
     ref: str = 'master'
-    interval: float = 300
+    interval: float = 180
     timeout: float = 30
     get_retries: int = 2
 
@@ -178,7 +178,7 @@ def main(argv=None, *, environ=None, opener=None, wait=None, stop_event=None, ou
     parser.add_argument('--repo', default='LeeXieXie/scoop-personal')
     parser.add_argument('--workflow', default='upstream-watch.yml')
     parser.add_argument('--ref', default='master')
-    parser.add_argument('--interval', type=float, default=300)
+    parser.add_argument('--interval', type=float, default=180)
     parser.add_argument('--timeout', type=float, default=30)
     parser.add_argument('--get-retries', type=int, default=2)
     modes = parser.add_mutually_exclusive_group()

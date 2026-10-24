@@ -1,6 +1,13 @@
 name: Publish Server Image
 
 on:
+  push:
+    branches: [master]
+    paths:
+      - scripts/server_upstream_timer.py
+      - scripts/test_server_upstream_timer.py
+      - deploy/server-timer/Dockerfile
+      - .github/workflows/publish-server-image.yml
   workflow_dispatch:
 
 permissions:
@@ -35,8 +42,10 @@ jobs:
           trap 'docker logout ghcr.io' EXIT
           docker buildx build --platform linux/amd64,linux/arm64 \
             -f deploy/server-timer/Dockerfile \
-            --tag ghcr.io/leexiexie/scoop-upstream-timer:1.0.0 \
+            --tag ghcr.io/leexiexie/scoop-upstream-timer:1.0.1 \
             --tag "ghcr.io/leexiexie/scoop-upstream-timer:sha-${GITHUB_SHA}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --label "org.opencontainers.image.version=1.0.1" \
             --push .
       - name: Verify published image without registry login
         env:
@@ -44,8 +53,12 @@ jobs:
         run: |
           docker logout ghcr.io
           export DOCKER_CONFIG="$(mktemp -d)"
-          docker pull ghcr.io/leexiexie/scoop-upstream-timer:1.0.0
+          docker pull ghcr.io/leexiexie/scoop-upstream-timer:1.0.1
+          test "$(docker image inspect ghcr.io/leexiexie/scoop-upstream-timer:1.0.1 --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$GITHUB_SHA"
           docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
-            ghcr.io/leexiexie/scoop-upstream-timer:1.0.0 --help
+            --entrypoint python ghcr.io/leexiexie/scoop-upstream-timer:1.0.1 \
+            -c 'import server_upstream_timer as timer; assert timer.Config().interval == 180; print("Verified default interval: 180 seconds")'
           docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
-            --env GH_TOKEN ghcr.io/leexiexie/scoop-upstream-timer:1.0.0 --check
+            ghcr.io/leexiexie/scoop-upstream-timer:1.0.1 --help
+          docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --env GH_TOKEN ghcr.io/leexiexie/scoop-upstream-timer:1.0.1 --check

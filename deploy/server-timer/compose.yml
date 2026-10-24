@@ -3,7 +3,7 @@ services:
     build:
       context: ../..
       dockerfile: deploy/server-timer/Dockerfile
-    command: ["--interval", "300"]
+    command: ["--interval", "180"]
     restart: unless-stopped
     user: "10001:10001"
     read_only: true

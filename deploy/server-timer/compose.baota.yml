@@ -1,7 +1,7 @@
 # 宝塔：Docker -> 容器编排 -> 创建，粘贴后填写 GH_TOKEN。
 services:
   scheduler:
-    image: ghcr.io/leexiexie/scoop-upstream-timer:1.0.0
+    image: ghcr.io/leexiexie/scoop-upstream-timer:1.0.1
     container_name: scoop-upstream-timer
     restart: unless-stopped
     user: "10001:10001"
@@ -13,7 +13,7 @@ services:
       GH_TOKEN: "在这里填写你的GitHubToken"
       PYTHONUNBUFFERED: "1"
       PYTHONDONTWRITEBYTECODE: "1"
-    command: ["--interval", "300"]
+    command: ["--interval", "180"]
     tmpfs:
       - /tmp:size=1m,mode=1777
     mem_limit: 128m

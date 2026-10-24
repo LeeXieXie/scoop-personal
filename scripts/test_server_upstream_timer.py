@@ -48,7 +48,7 @@ class TimerTests(unittest.TestCase):
     def test_defaults(self):
         cfg = self.config()
         self.assertEqual((cfg.repo, cfg.workflow, cfg.ref, cfg.interval),
-                         ('LeeXieXie/scoop-personal', 'upstream-watch.yml', 'master', 300))
+                         ('LeeXieXie/scoop-personal', 'upstream-watch.yml', 'master', 180))
     def test_config_validation(self):
         for kwargs in ({'repo': '../bad'}, {'repo': 'a/b/c'}, {'repo': 'a/b?x'},
                        {'ref': '-bad'}, {'ref': 'a..b'}, {'ref': 'a\nb'}, {'ref': 'a.lock'},
@@ -154,7 +154,7 @@ class TimerTests(unittest.TestCase):
         opener = Opener(http_error(403), Response(data={'workflow_runs': []}), Response(204))
         self.assertEqual(timer.main([], environ={'GH_TOKEN': 'SECRET'}, opener=opener,
                                     wait=wait, monotonic=lambda: now[0], output=io.StringIO()), 0)
-        self.assertEqual(waits, [300, 300])
+        self.assertEqual(waits, [180, 180])
     def test_keyboard_interrupt_and_pre_stopped(self):
         self.assertEqual(timer.main([], environ={'GH_TOKEN': 'SECRET'},
                                     opener=Opener(KeyboardInterrupt()), output=io.StringIO()), 0)
@@ -305,7 +305,7 @@ class TimerTests(unittest.TestCase):
                                     for value in ('2099', '1900', '2100', '1800')]
             self.assertEqual(timer.main([], environ={'GH_TOKEN': 'SECRET'}, wait=wait,
                                         monotonic=lambda: now[0], output=io.StringIO()), 0)
-        self.assertEqual(waits, [260, 260])
+        self.assertEqual(waits, [140, 140])
 
     def test_stop_during_processing_never_waits_or_posts_again(self):
         event = threading.Event()
@@ -328,7 +328,7 @@ class TimerTests(unittest.TestCase):
                                         output=output), 0)
             startup = json.loads(output.getvalue().splitlines()[0])
             self.assertEqual(startup['mode'], mode[2:])
-            self.assertEqual(startup['interval_seconds'], 300)
+            self.assertEqual(startup['interval_seconds'], 180)
             self.assertNotIn('SECRET', output.getvalue())
             if mode == '--check':
                 self.assertTrue(all(r.method == 'GET' for r, _ in opener.requests))
