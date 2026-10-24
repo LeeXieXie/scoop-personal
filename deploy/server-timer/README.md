@@ -1,6 +1,8 @@
 # Server scheduler deployment
 
-服务器版独立计时器，默认每 30 分钟触发本仓库的全包 Upstream Watch。
+服务器版独立计时器，默认每 5 分钟（300 秒）触发本仓库的全包 Upstream Watch，
+可用 `--interval 180` 改为 3 分钟。宝塔用户优先看 [宝塔中文部署步骤](BAOTA.md)
+和可直接粘贴的 [compose.baota.yml](compose.baota.yml)。
 只用 Python 标准库，不需要安装 gh，不需要开放服务器端口。
 **以下为部署方法，不表示已经安装到你的服务器。**
 优先选 Docker Compose 或 systemd 其中一种，先在服务器配置仅限本仓库的
@@ -46,10 +48,10 @@ docker compose up -d
 docker compose logs --tail=50 -f scheduler
 ```
 
-The container starts a check immediately, then waits 1800 seconds AFTER each
-cycle completes before starting the next one. Request/retry duration adds to the
-observed interval, and it does not issue catch-up bursts. For wall-clock minutes
-17 and 47, use the systemd timer option instead. It
+The container starts a check immediately, then follows a 300-second monotonic
+start cadence. Request duration is subtracted from the next wait. Missed ticks
+are skipped instead of issuing catch-up bursts. Change the Compose command to
+`["--interval", "180"]` for a three-minute cadence. It
 runs as a non-root user, with a read-only root filesystem, no published ports, and
 only a read-only token mount. Log rotation is configured. Keep the token file
 readable only to the intended service UID. Compose file-backed secrets are bind
@@ -67,7 +69,7 @@ check, not to claim a natural periodic run succeeded.
 
 ## Option B: Linux systemd timer
 
-This option uses a short-lived process every 30 minutes instead of a permanent
+This option uses a short-lived process every 5 minutes instead of a permanent
 Python loop. It requires systemd with `LoadCredential=` support (version 247+),
 Python 3.11+ and administrator access for installation. Do not combine with the
 Docker option.
@@ -95,8 +97,10 @@ systemctl list-timers scoop-upstream.timer
 `useradd` is a one-time step, skip it if the dedicated service user already exists.
 The systemd manager reads the root-only credential and exposes a private copy to
 the unprivileged service. Never make the token world-readable to fix a permissions
-error. The timer uses UTC wall-clock minutes 17 and 47, with persistent catch-up
-after downtime. `AccuracySec=1s` is a scheduling preference, not a completion SLA.
+error. The timer uses UTC wall-clock minutes 2, 7, 12, ... 57, with persistent catch-up
+after downtime. For three-minute spacing, change `OnCalendar` to
+`*-*-* *:02/3:00 UTC`, then reload and restart the timer. `AccuracySec=1s` is a
+scheduling preference, not a completion SLA.
 The service itself has no network listener and can only write temporary files.
 
 To inspect without dispatching an update trigger:
@@ -122,7 +126,9 @@ an existing process supervisor. Do not assume these unit files work on Windows.
 export GH_TOKEN_FILE=/secure/path/github-token
 python3 scripts/server_upstream_timer.py --check
 python3 scripts/server_upstream_timer.py --once
-python3 scripts/server_upstream_timer.py --interval 1800
+python3 scripts/server_upstream_timer.py --interval 300
+# Optional three-minute cadence:
+python3 scripts/server_upstream_timer.py --interval 180
 ```
 
 `--check` only queries the GitHub workflow queue. It does not dispatch a workflow

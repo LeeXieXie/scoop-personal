@@ -22,6 +22,9 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -33,7 +36,23 @@ jobs:
         run: |
           systemd-analyze verify deploy/server-timer/scoop-upstream.service deploy/server-timer/scoop-upstream.timer
           docker compose -f deploy/server-timer/compose.yml config --quiet
+          docker compose -f deploy/server-timer/compose.baota.yml config --quiet
       - name: Build deployment image and verify CLI
         run: |
           docker build -f deploy/server-timer/Dockerfile -t scoop-server-timer:test .
           docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges scoop-server-timer:test --help
+      - name: Verify BaoTa Compose mounts and real read-only GitHub API
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          directory=/www/server/scoop-upstream-timer
+          sudo install -d -m 755 "$directory"
+          sudo install -m 644 scripts/server_upstream_timer.py "$directory/server_upstream_timer.py"
+          trap 'sudo rm -f /www/server/scoop-upstream-timer/github-token' EXIT
+          printf '%s' "$GH_TOKEN" | sudo tee "$directory/github-token" > /dev/null
+          sudo chown 10001:10001 "$directory/github-token"
+          sudo chmod 600 "$directory/github-token"
+          docker compose -f deploy/server-timer/compose.baota.yml run --rm --no-deps scheduler python /app/server_upstream_timer.py --help
+          docker compose -f deploy/server-timer/compose.baota.yml config --format json | python3 -c 'import json,sys; c=json.load(sys.stdin)["services"]["scheduler"]; assert c["command"] == ["python", "/app/server_upstream_timer.py", "--interval", "300"]; assert "ports" not in c; assert c["read_only"] and c["user"] == "10001:10001"'
+          docker compose -f deploy/server-timer/compose.baota.yml run --rm --no-deps scheduler python /app/server_upstream_timer.py --check
+          docker compose -f deploy/server-timer/compose.baota.yml run --rm --no-deps scheduler python /app/server_upstream_timer.py --check --interval 180

@@ -179,9 +179,9 @@ python scripts/upstream_watch.py
 
 ## 常在线服务器部署
 
-服务器版使用 Python 标准库直接调用 GitHub API，每 30 分钟唤醒现有全包监听，不依赖 Windows 开机或 `gh` 登录，也不开放入站端口。提供 Docker Compose 常驻进程及 Linux systemd timer 两种部署方式，包含超时、有限重试、队列防重与结构化日志。
+服务器版使用 Python 标准库直接调用 GitHub API，默认每 **5 分钟（300 秒）**唤醒现有全包监听，可用 `--interval 180` 调整为 **3 分钟**；不依赖 Windows 开机或 `gh` 登录，也不开放入站端口。提供 Docker Compose 常驻进程及 Linux systemd timer 两种部署方式，包含超时、有限重试、队列防重与结构化日志。
 
-程序入口为 [`scripts/server_upstream_timer.py`](scripts/server_upstream_timer.py)，安装、凭据权限、运行检查及卸载步骤见 [`deploy/server-timer/README.md`](deploy/server-timer/README.md)。凭据只放在服务器环境或私有文件，不提交到仓库。部署文件交付不等于已安装到服务器；服务器上观察两次自然成功运行后，再禁用下面的 Windows 任务，避免多个独立计时器重复唤醒。
+程序入口为 [`scripts/server_upstream_timer.py`](scripts/server_upstream_timer.py)。**宝塔用户直接看 [中文部署步骤](deploy/server-timer/BAOTA.md)，将 [宝塔编排文件](deploy/server-timer/compose.baota.yml) 粘贴到 Docker → 容器编排，不需要自己构建镜像。** 其他安装方式、凭据权限、运行检查及卸载步骤见 [`deploy/server-timer/README.md`](deploy/server-timer/README.md)。凭据只放在服务器环境或私有文件，不提交到仓库。部署文件交付不等于已安装到服务器；服务器上观察两次自然成功运行后，再禁用下面的 Windows 任务，避免多个独立计时器重复唤醒。
 
 ## 独立定时触发（Windows 维护者工作站）
 

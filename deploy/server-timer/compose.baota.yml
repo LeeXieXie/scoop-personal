@@ -1,0 +1,42 @@
+# Paste this file in BaoTa: Docker -> Container orchestration -> Create.
+# First prepare BOTH host files as described in BAOTA.md.
+services:
+  scheduler:
+    image: python:3.13-slim
+    container_name: scoop-upstream-timer
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    working_dir: /app
+    environment:
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      GH_TOKEN_FILE: /run/secrets/github_token
+    command: ["python", "/app/server_upstream_timer.py", "--interval", "300"]
+    volumes:
+      - type: bind
+        source: /www/server/scoop-upstream-timer/server_upstream_timer.py
+        target: /app/server_upstream_timer.py
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /www/server/scoop-upstream-timer/github-token
+        target: /run/secrets/github_token
+        read_only: true
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /tmp:size=1m,mode=1777
+    mem_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
+    stop_grace_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"

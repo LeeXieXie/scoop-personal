@@ -16,6 +16,7 @@ import re
 import signal
 import sys
 import threading
+import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -30,7 +31,7 @@ class Config:
     repo: str = 'LeeXieXie/scoop-personal'
     workflow: str = 'upstream-watch.yml'
     ref: str = 'master'
-    interval: float = 1800
+    interval: float = 300
     timeout: float = 30
     get_retries: int = 2
 
@@ -163,8 +164,10 @@ class GitHubClient:
         return 'dispatched'
 
 
-def main(argv=None, *, environ=None, opener=None, wait=None, stop_event=None, output=None):
-    """Inject opener.open(Request, timeout), wait(seconds)->stopped for offline tests."""
+def main(argv=None, *, environ=None, opener=None, wait=None, stop_event=None, output=None,
+         monotonic=None):
+    """Inject HTTP, interruptible wait, and monotonic clock for offline tests."""
+    monotonic = monotonic if monotonic is not None else time.monotonic
     output = output if output is not None else sys.stdout
     def log(event, **fields):
         print(json.dumps({'time': datetime.now(timezone.utc).isoformat(), 'event': event, **fields}),
@@ -173,7 +176,7 @@ def main(argv=None, *, environ=None, opener=None, wait=None, stop_event=None, ou
     parser.add_argument('--repo', default='LeeXieXie/scoop-personal')
     parser.add_argument('--workflow', default='upstream-watch.yml')
     parser.add_argument('--ref', default='master')
-    parser.add_argument('--interval', type=float, default=1800)
+    parser.add_argument('--interval', type=float, default=300)
     parser.add_argument('--timeout', type=float, default=30)
     parser.add_argument('--get-retries', type=int, default=2)
     modes = parser.add_mutually_exclusive_group()
@@ -194,6 +197,11 @@ def main(argv=None, *, environ=None, opener=None, wait=None, stop_event=None, ou
             previous[signum] = signal.signal(signum, lambda *_: stop.set())
     client = GitHubClient(config, token, opener=opener, wait=wait, stop_event=stop)
     try:
+        log('started', interval_seconds=config.interval,
+            mode='check' if args.check else 'once' if args.once else 'loop',
+            schedule='monotonic_fixed_start_skip_missed', timeout_seconds=config.timeout,
+            get_retries=config.get_retries)
+        next_tick = monotonic()
         while not stop.is_set():
             result = 0
             try:
@@ -205,8 +213,16 @@ def main(argv=None, *, environ=None, opener=None, wait=None, stop_event=None, ou
                 result = 1
             if args.once or args.check:
                 return result
-            # Fixed delay after completion, including failure. No catch-up bursts.
-            if stop.is_set() or wait(config.interval):
+            if stop.is_set():
+                break
+            # Keep the original monotonic start grid, not completion + interval.
+            # Ticks at or before completion are missed, even on failures. Skip
+            # them instead of dispatching catch-up bursts after a slow request.
+            next_tick += config.interval
+            now = monotonic()
+            if next_tick <= now:
+                next_tick += (math.floor((now - next_tick) / config.interval) + 1) * config.interval
+            if wait(next_tick - now):
                 break
     except KeyboardInterrupt:
         stop.set()

@@ -5,6 +5,7 @@ import os
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
 
@@ -47,7 +48,7 @@ class TimerTests(unittest.TestCase):
     def test_defaults(self):
         cfg = self.config()
         self.assertEqual((cfg.repo, cfg.workflow, cfg.ref, cfg.interval),
-                         ('LeeXieXie/scoop-personal', 'upstream-watch.yml', 'master', 1800))
+                         ('LeeXieXie/scoop-personal', 'upstream-watch.yml', 'master', 300))
     def test_config_validation(self):
         for kwargs in ({'repo': '../bad'}, {'repo': 'a/b/c'}, {'repo': 'a/b?x'},
                        {'ref': '-bad'}, {'ref': 'a..b'}, {'ref': 'a\nb'}, {'ref': 'a.lock'},
@@ -145,13 +146,15 @@ class TimerTests(unittest.TestCase):
         self.assertEqual(len(opener.requests), 2)
     def test_loop_waits_after_error_and_stops(self):
         waits = []
+        now = [0.0]
         def wait(seconds):
             waits.append(seconds)
+            now[0] += seconds
             return len(waits) == 2
         opener = Opener(http_error(403), Response(data={'workflow_runs': []}), Response(204))
         self.assertEqual(timer.main([], environ={'GH_TOKEN': 'SECRET'}, opener=opener,
-                                    wait=wait, output=io.StringIO()), 0)
-        self.assertEqual(waits, [1800, 1800])
+                                    wait=wait, monotonic=lambda: now[0], output=io.StringIO()), 0)
+        self.assertEqual(waits, [300, 300])
     def test_keyboard_interrupt_and_pre_stopped(self):
         self.assertEqual(timer.main([], environ={'GH_TOKEN': 'SECRET'},
                                     opener=Opener(KeyboardInterrupt()), output=io.StringIO()), 0)
@@ -206,6 +209,79 @@ class TimerTests(unittest.TestCase):
         opener = Opener(Response(data={}), Response(data={'workflow_runs': [{'status': 'queued'}]}))
         self.assertEqual(self.client(opener).cycle(check=True), 'checked_busy')
         self.assertEqual([r.method for r, _ in opener.requests], ['GET', 'GET'])
+    def test_fixed_start_cadence_and_missed_ticks(self):
+        for interval in (180, 300):
+            for duration in (0, 25, interval, interval + 25, interval * 3):
+                with self.subTest(interval=interval, duration=duration):
+                    now = [1000.0]
+                    starts, waits = [], []
+                    def cycle(client, check=False):
+                        starts.append(now[0])
+                        now[0] += duration
+                        return 'dispatched'
+                    def wait(seconds):
+                        self.assertGreater(seconds, 0)
+                        waits.append(seconds)
+                        now[0] += seconds
+                        return len(waits) == 3
+                    output = io.StringIO()
+                    with patch.object(timer.GitHubClient, 'cycle', cycle):
+                        result = timer.main(['--interval', str(interval)],
+                                            environ={'GH_TOKEN': 'SECRET'}, wait=wait,
+                                            monotonic=lambda: now[0], output=output)
+                    self.assertEqual(result, 0)
+                    stride = (duration // interval + 1) * interval
+                    self.assertEqual(starts, [1000, 1000 + stride, 1000 + 2 * stride])
+                    self.assertEqual(waits, [stride - duration] * 3)
+                    startup = json.loads(output.getvalue().splitlines()[0])
+                    self.assertEqual(startup['interval_seconds'], interval)
+                    self.assertEqual(startup['mode'], 'loop')
+                    self.assertEqual(startup['schedule'], 'monotonic_fixed_start_skip_missed')
+                    self.assertNotIn('SECRET', output.getvalue())
+
+    def test_wall_clock_jumps_do_not_affect_failed_cycle_cadence(self):
+        now = [0.0]
+        waits = []
+        def cycle(client, check=False):
+            now[0] += 40
+            raise timer.TimerError('safe failure')
+        def wait(seconds):
+            waits.append(seconds)
+            now[0] += seconds
+            return len(waits) == 2
+        with patch.object(timer.GitHubClient, 'cycle', cycle), patch.object(timer, 'datetime') as wall:
+            wall.now.side_effect = [unittest.mock.Mock(isoformat=lambda value=value: value)
+                                    for value in ('2099', '1900', '2100', '1800')]
+            self.assertEqual(timer.main([], environ={'GH_TOKEN': 'SECRET'}, wait=wait,
+                                        monotonic=lambda: now[0], output=io.StringIO()), 0)
+        self.assertEqual(waits, [260, 260])
+
+    def test_stop_during_processing_never_waits_or_posts_again(self):
+        event = threading.Event()
+        def cycle(client, check=False):
+            event.set()
+            return 'stopped'
+        with patch.object(timer.GitHubClient, 'cycle', cycle):
+            self.assertEqual(timer.main([], environ={'GH_TOKEN': 'SECRET'}, stop_event=event,
+                                        wait=lambda _: self.fail('wait after stop'),
+                                        monotonic=lambda: 0, output=io.StringIO()), 0)
+
+    def test_startup_modes_are_safe_and_check_remains_read_only(self):
+        for mode in ('--once', '--check'):
+            output = io.StringIO()
+            opener = (Opener(Response(data={}), Response(data={'workflow_runs': []}))
+                      if mode == '--check' else
+                      Opener(Response(data={'workflow_runs': []}), Response(204)))
+            self.assertEqual(timer.main([mode], environ={'GH_TOKEN': 'SECRET'}, opener=opener,
+                                        wait=lambda _: self.fail('single mode waited'),
+                                        output=output), 0)
+            startup = json.loads(output.getvalue().splitlines()[0])
+            self.assertEqual(startup['mode'], mode[2:])
+            self.assertEqual(startup['interval_seconds'], 300)
+            self.assertNotIn('SECRET', output.getvalue())
+            if mode == '--check':
+                self.assertTrue(all(r.method == 'GET' for r, _ in opener.requests))
+
     def test_config_exit_is_json(self):
         output = io.StringIO()
         self.assertEqual(timer.main(['--interval', '0'], environ={}, output=output), 2)
