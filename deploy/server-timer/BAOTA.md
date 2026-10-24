@@ -1,6 +1,6 @@
 # 宝塔面板部署：每 3–5 分钟触发全包检测
 
-编排固定预构建镜像为 `ghcr.io/leexiexie/scoop-upstream-timer:1.0.1`，目标平台为 Linux amd64 / arm64。请等待该版本发布流程成功后部署，此处不声称新镜像已完成拉取或容器运行验证。不需要下载脚本、创建挂载文件、本地构建或创建 `.env`。这不代表已在你的宝塔服务器安装。
+编排使用滚动预构建镜像 `ghcr.io/leexiexie/scoop-upstream-timer:latest`，同时保留 `1.0.1` 版本标签供回退，目标平台为 Linux amd64 / arm64。每次升级需拉取镜像并重建容器，`latest` 不会自动替换已运行的容器。不需要下载脚本、创建挂载文件、本地构建或创建 `.env`。这不代表已在你的宝塔服务器安装。
 
 ## 创建编排
 
@@ -31,7 +31,7 @@ command: ["--interval", "180"]
 
 ## 从旧版本升级
 
-旧编排使用 `1.0.0` 镜像，且显式 `command: ["--interval", "300"]` 会覆盖新镜像的默认间隔。升级时同时把 `image` 改为 `ghcr.io/leexiexie/scoop-upstream-timer:1.0.1`，把 `command` 改为 `["--interval", "180"]`。等待新镜像发布成功后，在宝塔强制拉取镜像并重新部署/重建容器，**仅重启旧容器不足以升级镜像或参数**。命令行等效操作（在保存编排的目录执行）：
+旧编排使用 `1.0.0` 镜像，且显式 `command: ["--interval", "300"]` 会覆盖新镜像的默认间隔。升级时同时把 `image` 改为 `ghcr.io/leexiexie/scoop-upstream-timer:latest`，把 `command` 改为 `["--interval", "180"]`。等待新镜像发布成功后，在宝塔强制拉取镜像并重新部署/重建容器，**仅重启旧容器不足以升级镜像或参数**。命令行等效操作（在保存编排的目录执行）：
 
 ```sh
 docker compose pull scheduler
