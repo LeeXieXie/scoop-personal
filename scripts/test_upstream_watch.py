@@ -19,9 +19,18 @@ class WatchTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             w.discover({'checkver': {'url': 'https://example.com', 'regex': '(a)(b)'}}, lambda url: 'ab')
 
+    def test_deepseek_harness_package_id(self):
+        manifest_path = Path('bucket/deepseek-harness.json')
+        self.assertTrue(manifest_path.is_file(), 'Use the official deepseek-harness manifest filename')
+        self.assertFalse(Path('bucket/dshdesktop.json').exists(), 'Do not retain a second active desktop package')
+        manifest = json.loads(manifest_path.read_text())
+        self.assertEqual(manifest['shortcuts'], [['DeepSeek Harness.exe', 'DeepSeek Harness']])
+        self.assertIn('/dshdesktop-', manifest['architecture']['64bit']['url'])
+        self.assertIn('/dshdesktop-$version-', manifest['autoupdate']['architecture']['64bit']['url'])
+
     def test_renamed_community_repositories(self):
         for name, repository, digest in [
-            ('dshdesktop', 'LeeXieXie/deepseek-harness', '9a6fa842d68cffb5558d314fd142a31f54627f0d48baed8974b42f5e008f1003'),
+            ('deepseek-harness', 'LeeXieXie/deepseek-harness', '9a6fa842d68cffb5558d314fd142a31f54627f0d48baed8974b42f5e008f1003'),
             ('zcode', 'LeeXieXie/ZCode', '441d65585aaad2ec72fdc3841a2af405ef0eed63d79470650466ece06045fb19'),
         ]:
             manifest = json.loads(Path('bucket', name + '.json').read_text())
@@ -69,8 +78,8 @@ class WatchTests(unittest.TestCase):
         version, fields, release = w.discover(m, lambda url: '<feed><id>https://github.com/1jehuang/jcode-desktop/releases/tag/desktop-v0.7.0-beta.1</id></feed>')
         self.assertEqual(version, '0.7.0-beta.1')
 
-    def test_dshdesktop_community_versions(self):
-        m = json.loads(Path('bucket/dshdesktop.json').read_text())
+    def test_deepseek_harness_community_versions(self):
+        m = json.loads(Path('bucket/deepseek-harness.json').read_text())
         rule = m['checkver']
         # Scoop's default GitHub regex accepts digits/dots only. The manifest
         # must override it to retain the RC suffix and community build number.
@@ -94,7 +103,7 @@ class WatchTests(unittest.TestCase):
             if 'github' in rule:
                 endpoint = 'https://api.github.com/repos/' + rule['github'].split('github.com/')[1] + '/releases/latest'
                 tag = 'v' + version
-            elif name == 'dshdesktop':
+            elif name == 'deepseek-harness':
                 responses[rule['url']] = '<a href="/LeeXieXie/deepseek-harness/releases/tag/v' + version + '">Release</a>'
                 endpoint = 'https://api.github.com/repos/LeeXieXie/deepseek-harness/releases/tags/v' + version
                 tag = 'v' + version

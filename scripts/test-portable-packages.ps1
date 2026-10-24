@@ -1,4 +1,4 @@
-param([ValidateSet('smartsearch', 'jcode', 'jcode-desktop', 'dshdesktop')][string[]]$App = @('smartsearch', 'jcode', 'jcode-desktop', 'dshdesktop'))
+param([ValidateSet('smartsearch', 'jcode', 'jcode-desktop', 'deepseek-harness')][string[]]$App = @('smartsearch', 'jcode', 'jcode-desktop', 'deepseek-harness'))
 
 $ErrorActionPreference = 'Stop'
 if (!$env:SCOOP_HOME) { $env:SCOOP_HOME = Convert-Path (scoop prefix scoop) }
@@ -58,7 +58,7 @@ foreach ($name in $App) {
         Expand-7zipArchive @options
         $exe = switch ($name) {
             'smartsearch' { 'SmartSearch.Desktop.exe' }
-            'dshdesktop' { 'DeepSeek Harness.exe' }
+            'deepseek-harness' { 'DeepSeek Harness.exe' }
             'jcode-desktop' { 'jcode-desktop.exe' }
             default { $platform.bin[0][0] }
         }
@@ -83,7 +83,7 @@ foreach ($name in $App) {
             $icon = New-Object Drawing.Icon (Join-Path $directory 'Jcode.ico')
             try { if ($icon.Width -ne 256 -or $icon.Height -ne 256) { throw 'Invalid desktop shortcut icon dimensions.' } }
             finally { $icon.Dispose() }
-        } elseif ($name -eq 'dshdesktop') {
+        } elseif ($name -eq 'deepseek-harness') {
             foreach ($file in @('resources/app.asar', 'resources/runtime/versions.json', 'resources/runtime/primary-runtime/runtime.json', 'resources/runtime/primary-runtime/dependencies/node/bin/node.exe', 'resources/runtime/primary-runtime/dependencies/python/python.exe', 'resources/runtime/primary-runtime/dependencies/pnpm/bin/pnpm.cjs', 'resources/runtime/cli/command-manager.js', 'build-source.json', 'LICENSE', 'THIRD_PARTY_NOTICES')) {
                 if (!(Test-Path -LiteralPath (Join-Path $directory $file) -PathType Leaf)) { throw "Incomplete DSH Desktop bundle: $file" }
             }
