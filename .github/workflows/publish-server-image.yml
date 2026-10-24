@@ -1,0 +1,51 @@
+name: Publish Server Image
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-server-image
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/master' && github.repository == 'LeeXieXie/scoop-personal'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Regression tests
+        run: python3 -m unittest discover -s scripts -p 'test_server_upstream_timer.py' -v
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build and publish prebuilt image
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          trap 'docker logout ghcr.io' EXIT
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            -f deploy/server-timer/Dockerfile \
+            --tag ghcr.io/leexiexie/scoop-upstream-timer:1.0.0 \
+            --tag "ghcr.io/leexiexie/scoop-upstream-timer:sha-${GITHUB_SHA}" \
+            --push .
+      - name: Verify published image without registry login
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          docker logout ghcr.io
+          export DOCKER_CONFIG="$(mktemp -d)"
+          docker pull ghcr.io/leexiexie/scoop-upstream-timer:1.0.0
+          docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
+            ghcr.io/leexiexie/scoop-upstream-timer:1.0.0 --help
+          docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --env GH_TOKEN ghcr.io/leexiexie/scoop-upstream-timer:1.0.0 --check
