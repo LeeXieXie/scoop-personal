@@ -41,18 +41,13 @@ jobs:
         run: |
           docker build -f deploy/server-timer/Dockerfile -t scoop-server-timer:test .
           docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges scoop-server-timer:test --help
-      - name: Verify BaoTa Compose mounts and real read-only GitHub API
+      - name: Verify prebuilt BaoTa image and environment-only deployment
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          directory=/www/server/scoop-upstream-timer
-          sudo install -d -m 755 "$directory"
-          sudo install -m 644 scripts/server_upstream_timer.py "$directory/server_upstream_timer.py"
-          trap 'sudo rm -f /www/server/scoop-upstream-timer/github-token' EXIT
-          printf '%s' "$GH_TOKEN" | sudo tee "$directory/github-token" > /dev/null
-          sudo chown 10001:10001 "$directory/github-token"
-          sudo chmod 600 "$directory/github-token"
-          docker compose -f deploy/server-timer/compose.baota.yml run --rm --no-deps scheduler python /app/server_upstream_timer.py --help
-          docker compose -f deploy/server-timer/compose.baota.yml config --format json | python3 -c 'import json,sys; c=json.load(sys.stdin)["services"]["scheduler"]; assert c["command"] == ["python", "/app/server_upstream_timer.py", "--interval", "300"]; assert "ports" not in c; assert c["read_only"] and c["user"] == "10001:10001"'
-          docker compose -f deploy/server-timer/compose.baota.yml run --rm --no-deps scheduler python /app/server_upstream_timer.py --check
-          docker compose -f deploy/server-timer/compose.baota.yml run --rm --no-deps scheduler python /app/server_upstream_timer.py --check --interval 180
+          export DOCKER_CONFIG="$(mktemp -d)"
+          docker compose -f deploy/server-timer/compose.baota.yml pull
+          docker compose -f deploy/server-timer/compose.baota.yml config --format json | python3 -c 'import json,sys; c=json.load(sys.stdin)["services"]["scheduler"]; assert c["command"] == ["--interval", "300"]; assert "ports" not in c and "volumes" not in c and "build" not in c; assert c["read_only"] and c["user"] == "10001:10001"; assert "GH_TOKEN" in c["environment"] and "GH_TOKEN_FILE" not in c["environment"]'
+          docker compose -f deploy/server-timer/compose.baota.yml run --rm --no-deps scheduler --help
+          docker compose -f deploy/server-timer/compose.baota.yml run --rm --no-deps -e GH_TOKEN scheduler --check
+          docker compose -f deploy/server-timer/compose.baota.yml run --rm --no-deps -e GH_TOKEN scheduler --check --interval 180

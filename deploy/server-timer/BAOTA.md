@@ -1,92 +1,47 @@
 # 宝塔面板部署：每 3–5 分钟触发全包检测
 
-默认 **5 分钟（300 秒）**，希望更快可改成 **3 分钟（180 秒）**。
-服务器只负责定时唤醒 GitHub 上的 `Upstream Watch`，仍由它检查桶中全部包并按需启动 Excavator。
-不需要安装 gh、不需要本地构建镜像、不需要域名或放行端口。
+使用已发布的预构建镜像 `ghcr.io/leexiexie/scoop-upstream-timer:1.0.0`，支持 Linux amd64 / arm64，已通过免登录拉取和容器运行验证。不需要下载脚本、创建挂载文件、本地构建或创建 `.env`。这不代表已在你的宝塔服务器安装。
 
-> 下面是交付的部署步骤，不表示已经连接或安装到你的服务器。
-> 宝塔界面名称可能因版本略有不同。[官方容器编排说明](https://docs.bt.cn/user-guide/docker/compose/)和[官方教程](https://www.bt.cn/bbs/thread-140412-1-1.html)支持直接粘贴 Compose 文件创建编排。
+## 创建编排
 
-## 1. 准备服务器目录与两个文件
+1. 进入宝塔 **Docker → 容器编排 → 添加/创建编排**，名称填 `scoop-upstream-timer`。
+2. 粘贴 [`compose.baota.yml`](compose.baota.yml) 的完整内容。
+3. 直接在宝塔编排的 `environment` 中替换占位值，保留引号：
 
-在宝塔的「文件」中创建目录，或在服务器终端执行：
+   ```yaml
+   environment:
+     GH_TOKEN: "在这里填写你的GitHubToken"
+     PYTHONUNBUFFERED: "1"
+     PYTHONDONTWRITEBYTECODE: "1"
+   ```
 
-```sh
-sudo install -d -m 755 /www/server/scoop-upstream-timer
-```
+4. 点击创建/部署，拉取镜像并启动。无需端口映射、域名或额外文件。
 
-通过宝塔文件管理器将下面两个文件放在该目录中：
+Token 使用 fine-grained PAT，仅授权 `LeeXieXie/scoop-personal`，仓库权限 **Actions: Read and write**，Metadata 读取权限自动包含。Token 是运行时环境变量，不放进镜像。**环境变量对宝塔管理员、Docker 管理员及 `docker inspect` 可见**，不是加密保管。不要截图、发送或提交包含真实 Token 的编排。
 
-```text
-/www/server/scoop-upstream-timer/
-├── server_upstream_timer.py
-└── github-token
-```
+## 间隔与参数修改
 
-- `server_upstream_timer.py`：从本仓库 [`scripts/server_upstream_timer.py`](../../scripts/server_upstream_timer.py) 下载，保留这个文件名。请下载更新后的版本，旧版默认间隔为 30 分钟。
-- `github-token`：在**服务器上**新建普通文本文件，只写入你的 GitHub Token，不加引号，不写 `GH_TOKEN=`，不要使用 UTF-8 BOM。
-
-Token 应为 fine-grained PAT，仅允许 `LeeXieXie/scoop-personal`，仓库权限 **Actions: Read and write**。Metadata 的读取权限会自动包含。不需要给其他仓库授权，也不要把 Token 发到聊天、Git 或截图里。
-
-服务器终端设置权限：
-
-```sh
-sudo chmod 644 /www/server/scoop-upstream-timer/server_upstream_timer.py
-sudo chown 10001:10001 /www/server/scoop-upstream-timer/github-token
-sudo chmod 600 /www/server/scoop-upstream-timer/github-token
-```
-
-容器使用 UID/GID `10001:10001`，所以 Token 必须可被这个 UID 读取。不要为了修复权限把 Token 改成 777 或所有人可读。可以将目录放在其他位置，但必须同步修改下面编排中的两个 `source`。
-
-## 2. 在宝塔创建容器编排
-
-1. 进入宝塔 **Docker → 容器编排 → 添加/创建编排**。
-2. 编排名可填 `scoop-upstream-timer`。
-3. 选择「Compose 内容」或类似的直接编辑方式。
-4. 粘贴 [`compose.baota.yml`](compose.baota.yml) 的**完整内容**。
-5. 保留 `--interval`, `300`，即默认 5 分钟；改为 `180` 就是 3 分钟。
-6. 创建/部署，等待拉取官方 `python:3.13-slim` 镜像并启动容器。
-
-不需要填写端口映射。此程序没有网页管理界面，「访问」按钮不可用是正常现象。镜像拉取失败时应先解决服务器的 Docker Hub 连接，不要把自己的 GitHub Token 填到镜像仓库密码里。
-
-编排使用绝对文件路径，不依赖宝塔把编排保存在哪个目录。两个文件必须**提前存在且是普通文件**；配置中的 `create_host_path: false` 可避免错误路径被自动创建成目录。较旧 Compose 如果不支持这个选项，优先升级宝塔 Docker 模块或 Compose，而不是直接去掉文件检查后盲目启动。
-
-## 3. 看日志确认运行
-
-在宝塔打开该编排下 `scoop-upstream-timer` 容器的日志。正常情况会出现 JSON 记录：
-
-- 启动配置记录中的 `interval_seconds` 为 `300` 或 `180`。
-- `dispatched`：GitHub 接受了本次触发请求。
-- `busy`：已有未完成的上游检测，跳过重复触发，属于正常情况。
-- `cycle_failed`：网络、权限、限流等错误，按记录排查。Token 过期或授权错误必须在服务器上修正。
-
-`dispatched` 不等于软件已经更新成功。打开仓库 **Actions → Upstream Watch**，确认全部包检测结果；发现新版时再看 Excavator 和后续 CI 是否成功。没有新版时不启动 Excavator 是正确行为。
-
-首次启动会立即检查，之后以 300 秒或 180 秒的启动节拍运行。请求耗时会占用周期，超过周期时跳过错过的时刻，不连续补发请求。网络中断、GitHub 排队、已有运行未完成时，不能保证每 3–5 分钟完成一次更新。
-
-正常 5 分钟计划最多约 288 次触发请求/日，3 分钟最多约 480 次；已有任务会去重跳过。每次都需要 Linux 检测任务，可能增加 Actions 使用量。建议先用 5 分钟。
-
-## 4. 改为 3 分钟或回到 5 分钟
-
-在宝塔编辑编排，只改命令最后的数字，然后重新部署/重建容器：
+默认每 5 分钟（300 秒）触发一次：
 
 ```yaml
-command: ["python", "/app/server_upstream_timer.py", "--interval", "180"]
+command: ["--interval", "300"]
 ```
 
-- 3 分钟：`180`
-- 5 分钟：`300`
+要改成每 3 分钟，将 `300` 改为 `180`。镜像 ENTRYPOINT 已包含 Python 脚本，不要在 command 中重复添加 Python 或脚本路径。修改参数或 Token 后，使用宝塔的**重新部署/重建容器**应用配置，仅重启旧容器不会更新环境变量和启动参数。只保留一个调度器。
 
-只点「重启」不一定应用变更后的编排配置，应使用面板的重新部署/更新编排。不要创建第二个同名或不同名的调度器来代替修改。
+## 确认运行
 
-## 5. 成功后切换与回滚
+在宝塔查看 `scoop-upstream-timer` 容器日志：
 
-在服务器上观察**两次自然周期**，核对 GitHub 运行创建时间和逐包检测结果。完成后：
+- `interval_seconds`：应为 `300` 或 `180`。
+- `dispatched`：GitHub 已接受触发请求，不等于软件已更新成功。
+- `busy`：已有未完成检测，跳过重复触发，属于正常情况。
+- `cycle_failed`：检查网络、Token 权限/有效期及 GitHub 限流。
 
-- 只保留这一套服务器编排，停用同机另装的 systemd timer 或另一个 Docker 调度器。
-- 在原 Windows 电脑上执行 `Disable-ScheduledTask -TaskName ScoopPersonalUpstreamWatch`，停掉旧的半小时触发器。服务器未验收前先不要停。
-- 保留仓库原 GitHub cron 作低可靠性兜底。
+再到仓库 **Actions → Upstream Watch** 查看逐包结果，发现新版时检查 Excavator 和后续 CI。没有新版时不启动 Excavator 是正常行为。首次启动立即检查，后续按间隔运行，网络中断、排队或已有任务未完成时不能保证每 3–5 分钟完成更新。5 分钟最多约 288 次触发请求/日，3 分钟约 480 次，可能增加 Actions 使用量，建议先用 5 分钟。
 
-需要停用服务器任务时，在宝塔停止该编排即可。不要删除 Token 文件，除非你确实要撤销部署。回滚可停止服务器编排，然后恢复 Windows 任务：`Enable-ScheduledTask -TaskName ScoopPersonalUpstreamWatch`。
+## 新增包与切换
 
-更新程序时，先备份旧脚本，用新文件覆盖 `server_upstream_timer.py`，保持文件名与权限不变，再重建/重启容器。Token 文件始终只保存在服务器，不放进镜像。
+服务器镜像只负责定时唤醒 GitHub 工作流。上游检测会**动态扫描 `bucket/*.json`**，新增使用受支持 `checkver`/`autoupdate` 格式的清单，无需重新构建 timer 镜像。未知或不受支持的格式应显式报错，不应静默跳过或声称检测成功。
+
+确认两次自然周期和 GitHub 检测结果正常后，再停用旧 Windows 计划任务或其他服务器调度器，保留 GitHub cron 兜底。需要停用时，在宝塔停止此编排。更新 timer 程序时使用发布方提供的新镜像版本并重新部署，不再下载或覆盖服务器脚本。
