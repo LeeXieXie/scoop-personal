@@ -1,6 +1,6 @@
 {
     "version": "0.2.1-rc.3.20261024.1",
-    "description": "Unofficial portable Windows build of DeepSeek Harness Desktop, an Electron AI coding workspace.",
+    "description": "Unofficial portable Windows build of DeepSeek Harness, an Electron AI coding workspace.",
     "homepage": "https://github.com/LeeXieXie/dshdesktop-releases",
     "license": "MIT",
     "notes": [
@@ -20,7 +20,7 @@
     "shortcuts": [
         [
             "DeepSeek Harness.exe",
-            "DeepSeek Harness Desktop (Community)"
+            "DeepSeek Harness"
         ]
     ],
     "checkver": {

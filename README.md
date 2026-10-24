@@ -112,12 +112,22 @@ scoop update jcode-desktop
 
 配置保存在 `%APPDATA%\Pebrel`，不位于 Scoop 安装目录，无需额外的 `persist` 或自动迁移脚本。上游首次启动会配置 AI CLI 通知集成，可通过 `pebrel setup-ai --remove` 撤销。请使用 Scoop 更新，避免使用应用内更新安装器。清单通过 GitHub 最新稳定版检测更新，并从官方 `SHA256SUMS` 获取两个架构的 SHA-256 校验值，参与全包 Upstream Watch，并由每 30 分钟一次的 Excavator 任务兜底。
 
-[`dshdesktop`](bucket/dshdesktop.json)：[DeepSeek Harness 上游源码](https://github.com/deepseek-ai/deepseek-harness) · [自建社区构建仓库](https://github.com/LeeXieXie/dshdesktop-releases)。Windows x64 便携 ZIP，当前社区版本 `0.2.1-rc.3.20261024.1`，固定上游提交 `22ddee3792402c3e70ec5f86a63c3e3e895a2f60`（MIT）。自带 Node/Python、完整桌面 Host 与依赖，不需要单独安装 CLI，也不注册可能冲突的 `dsh` 命令。开始菜单入口为 `DeepSeek Harness Desktop (Community)`。
+[`dshdesktop`](bucket/dshdesktop.json)：[DeepSeek Harness 上游源码](https://github.com/deepseek-ai/deepseek-harness) · [自建社区构建仓库](https://github.com/LeeXieXie/dshdesktop-releases)。Windows x64 便携 ZIP，当前社区版本 `0.2.1-rc.3.20261024.1`，固定上游提交 `22ddee3792402c3e70ec5f86a63c3e3e895a2f60`（MIT）。自带 Node/Python、完整桌面 Host 与依赖，不需要单独安装 CLI，也不注册可能冲突的 `dsh` 命令。开始菜单入口为 `DeepSeek Harness`，与官方 Windows `productName` 一致，名称不再追加 `Desktop` 或 `Community`；Scoop 包名仍为 `dshdesktop`。
 
 ```powershell
 scoop install personal/dshdesktop
 scoop update dshdesktop
 ```
+
+已安装旧名称快捷方式的用户，请先关闭应用，再依次执行以下命令以重建开始菜单入口。同版本的普通 `scoop update` 和 `scoop reset` 不会读取更新后的桶清单来重建现有名称：
+
+```powershell
+scoop update
+scoop uninstall dshdesktop
+scoop install personal/dshdesktop
+```
+
+卸载时不要加 `--purge`；上述操作不迁移或删除上游默认用户目录中的配置。不使用同版本强制更新更名，因为本机 Scoop 的该实现不会移除旧名称快捷方式，会留下旧链接。
 
 这是非官方未签名构建，包含上游 RC 代码，可能触发 SmartScreen。构建对 unsigned 模式进行两处精确配置适配，不嵌入官方强制升级策略和自动更新 feed，由 Scoop 更新；不修改认证、沙箱或运行时完整性验证。Release 附带 `SHA256SUMS`、`build-source.json` 与许可文件。配置保留在上游默认用户目录，不迁移或删除现有数据，勿与共享配置的官方版同时运行。上游完整打包烟测与独立 Windows 进程启动通过，但未测试账户登录、模型会话及完整 GUI 交互；启动时有非致命 mandatory-status IPC 警告，详见 Release 说明。包参与全部上游监听，检测的是本人的已发布社区构建，不会在上游源码变化后自动重建二进制。
 
