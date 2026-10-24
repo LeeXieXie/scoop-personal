@@ -89,7 +89,7 @@ Scoop 自 `0.1.1067` 起持久化 Magpie 数据。旧配置位于 `$env:USERPROF
 
 清单参考 [ScoopInstaller/Extras 的 openchamber.json](https://github.com/ScoopInstaller/Extras/blob/master/bucket/openchamber.json)，参考清单采用 Unlicense；应用采用 MIT 许可证。安装脚本解包 Electron 安装器内 `$PLUGINSDIR` 的 `app-*.7z` 并删除安装器残留；校验值与官方 `latest.yml` / `latest-arm64.yml` 中的 SHA-512 一致。
 
-[`zcode`](bucket/zcode.json)：[社区构建仓库](https://github.com/LeeXieXie/zcode-releases) · [上游源码](https://github.com/zai-org/ZCode)。仅支持 Windows x64；Scoop 版本采用“应用版本.UTC 源码提交时间-upstream.SHA”，确保相同应用版本下的新提交按时间更新，而不是错误地按随机 SHA 排序。下载社区 Release 的 EXE，解包内层 `app-64.7z`；校验值来自同一 Release 的 `SHA256SUMS.txt`。版本信息读取公开 Release 的 `build-provenance.json`，不依赖匿名 GitHub API 配额；由全包 Upstream Watch 检查更新，并由每 30 分钟一次的 Excavator 兜底，无需单独的 ZCode 工作流。
+[`zcode`](bucket/zcode.json)：[社区构建仓库](https://github.com/LeeXieXie/ZCode) · [上游源码](https://github.com/zai-org/ZCode)。仅支持 Windows x64；Scoop 版本采用“应用版本.UTC 源码提交时间-upstream.SHA”，确保相同应用版本下的新提交按时间更新，而不是错误地按随机 SHA 排序。下载社区 Release 的 EXE，解包内层 `app-64.7z`；校验值来自同一 Release 的 `SHA256SUMS.txt`。版本信息读取公开 Release 的 `build-provenance.json`，不依赖匿名 GitHub API 配额；由全包 Upstream Watch 检查更新，并由每 30 分钟一次的 Excavator 兜底，无需单独的 ZCode 工作流。
 
 这是非官方、未签名构建，Computer Use 不可用；其他功能的资源完整性检查不等于端到端功能验证。上游仍有第三方许可材料缺口，请先阅读 Release 附带声明。自动更新已在构建中关闭，更新由 Scoop 管理；不迁移或删除上游默认位置的用户数据。
 
@@ -112,7 +112,7 @@ scoop update jcode-desktop
 
 配置保存在 `%APPDATA%\Pebrel`，不位于 Scoop 安装目录，无需额外的 `persist` 或自动迁移脚本。上游首次启动会配置 AI CLI 通知集成，可通过 `pebrel setup-ai --remove` 撤销。请使用 Scoop 更新，避免使用应用内更新安装器。清单通过 GitHub 最新稳定版检测更新，并从官方 `SHA256SUMS` 获取两个架构的 SHA-256 校验值，参与全包 Upstream Watch，并由每 30 分钟一次的 Excavator 任务兜底。
 
-[`dshdesktop`](bucket/dshdesktop.json)：[DeepSeek Harness 上游源码](https://github.com/deepseek-ai/deepseek-harness) · [自建社区构建仓库](https://github.com/LeeXieXie/dshdesktop-releases)。Windows x64 便携 ZIP，当前社区版本 `0.2.1-rc.3.20261024.1`，固定上游提交 `22ddee3792402c3e70ec5f86a63c3e3e895a2f60`（MIT）。自带 Node/Python、完整桌面 Host 与依赖，不需要单独安装 CLI，也不注册可能冲突的 `dsh` 命令。开始菜单入口为 `DeepSeek Harness`，与官方 Windows `productName` 一致，名称不再追加 `Desktop` 或 `Community`；Scoop 包名仍为 `dshdesktop`。
+[`dshdesktop`](bucket/dshdesktop.json)：[DeepSeek Harness 上游源码](https://github.com/deepseek-ai/deepseek-harness) · [自建社区构建仓库](https://github.com/LeeXieXie/deepseek-harness)。Windows x64 便携 ZIP，当前社区版本 `0.2.1-rc.3.20261024.1`，固定上游提交 `22ddee3792402c3e70ec5f86a63c3e3e895a2f60`（MIT）。自带 Node/Python、完整桌面 Host 与依赖，不需要单独安装 CLI，也不注册可能冲突的 `dsh` 命令。开始菜单入口为 `DeepSeek Harness`，与官方 Windows `productName` 一致，名称不再追加 `Desktop` 或 `Community`；Scoop 包名仍为 `dshdesktop`。
 
 ```powershell
 scoop install personal/dshdesktop

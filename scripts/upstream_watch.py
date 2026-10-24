@@ -56,11 +56,11 @@ def discover(m, get):
             raise ValueError('checkver regex must produce one version capture')
         return match[1], {}, None
     # This adapter deliberately recognizes only the reviewed provenance rule.
-    if set(rule) == {'url', 'script', 'regex'} and rule['url'] == 'https://github.com/LeeXieXie/zcode-releases/releases/latest/download/build-provenance.json':
+    if set(rule) == {'url', 'script', 'regex'} and rule['url'] == 'https://github.com/LeeXieXie/ZCode/releases/latest/download/build-provenance.json':
         expected = json.loads((Path(__file__).parent / 'zcode-checkver.json').read_text(encoding='utf-8-sig'))
         if rule != expected:
             raise ValueError('ZCode checkver changed, adapter review required')
-        release = json.loads(get('https://api.github.com/repos/LeeXieXie/zcode-releases/releases/latest'))
+        release = json.loads(get('https://api.github.com/repos/LeeXieXie/ZCode/releases/latest'))
         upstream = json.loads(get(rule['url']))['upstream']
         if upstream['repository'] != 'zai-org/ZCode' or not re.fullmatch('[a-f0-9]{40}', upstream['sha']) or not re.fullmatch(r'\d+\.\d+\.\d+', upstream['version']):
             raise ValueError('Invalid ZCode release provenance')
@@ -137,7 +137,7 @@ def check(name, m, get):
             candidate = json.loads(get('https://api.github.com/repos/' + repo + '/releases/tags/' + quote(tag, safe='')))
         if repo == 'yetone/magpie-releases':
             names |= {'magpie-windows-amd64.exe', 'magpie-windows-arm64.exe', 'magpie-cli-windows-amd64.exe', 'magpie-cli-windows-arm64.exe', 'SHA256SUMS'}
-        if repo == 'LeeXieXie/zcode-releases':
+        if repo == 'LeeXieXie/ZCode':
             names.add('build-provenance.json')
         if candidate.get('draft') or not assets_ready(candidate, names):
             result.update(status='not_ready', detail='Required uploaded nonempty assets: ' + ', '.join(sorted(names)))

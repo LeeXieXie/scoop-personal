@@ -19,6 +19,25 @@ class WatchTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             w.discover({'checkver': {'url': 'https://example.com', 'regex': '(a)(b)'}}, lambda url: 'ab')
 
+    def test_renamed_community_repositories(self):
+        for name, repository, digest in [
+            ('dshdesktop', 'LeeXieXie/deepseek-harness', '9a6fa842d68cffb5558d314fd142a31f54627f0d48baed8974b42f5e008f1003'),
+            ('zcode', 'LeeXieXie/ZCode', '441d65585aaad2ec72fdc3841a2af405ef0eed63d79470650466ece06045fb19'),
+        ]:
+            manifest = json.loads(Path('bucket', name + '.json').read_text())
+            base = 'https://github.com/' + repository
+            self.assertEqual(manifest['homepage'], base)
+            self.assertTrue(manifest['checkver']['url'].startswith(base + '/releases/latest'))
+            self.assertEqual(manifest['architecture']['64bit']['hash'], digest)
+            self.assertTrue(manifest['architecture']['64bit']['url'].startswith(base + '/releases/download/'))
+            self.assertTrue(manifest['autoupdate']['architecture']['64bit']['url'].startswith(base + '/releases/download/'))
+        zcode = json.loads(Path('bucket/zcode.json').read_text())
+        self.assertEqual(zcode['checkver'], json.loads(Path('scripts/zcode-checkver.json').read_text()))
+        changed = json.loads(json.dumps(zcode))
+        changed['checkver']['script'].append('unreviewed change')
+        with self.assertRaisesRegex(ValueError, 'adapter review required'):
+            w.discover(changed, lambda url: self.fail('Unreviewed scripts must fail before fetching'))
+
     def test_versions(self):
         for old, new in [('1.9.0', '1.10.0'), ('1.0.0-beta.2', '1.0.0-beta.10'), ('1.0.0-rc.1', '1.0.0'), ('3.16.2.20261020062305-upstream.abc', '3.16.2.20261021062305-upstream.def')]:
             self.assertGreater(w.compare(new, old), 0)
@@ -57,7 +76,7 @@ class WatchTests(unittest.TestCase):
         # must override it to retain the RC suffix and community build number.
         pattern = rule.get('regex', r'/releases/tag/(?:v|V)?([\d.]+)')
         for version in ['0.2.1-rc.3.20261024.1', '0.2.1-rc.3.20261024.2', '0.2.1.20261025.1']:
-            page = '<a href="/LeeXieXie/dshdesktop-releases/releases/tag/v' + version + '">Release</a>'
+            page = '<a href="/LeeXieXie/deepseek-harness/releases/tag/v' + version + '">Release</a>'
             match = re.search(pattern, page)
             self.assertIsNotNone(match)
             self.assertEqual(match[1], version)
@@ -76,8 +95,8 @@ class WatchTests(unittest.TestCase):
                 endpoint = 'https://api.github.com/repos/' + rule['github'].split('github.com/')[1] + '/releases/latest'
                 tag = 'v' + version
             elif name == 'dshdesktop':
-                responses[rule['url']] = '<a href="/LeeXieXie/dshdesktop-releases/releases/tag/v' + version + '">Release</a>'
-                endpoint = 'https://api.github.com/repos/LeeXieXie/dshdesktop-releases/releases/tags/v' + version
+                responses[rule['url']] = '<a href="/LeeXieXie/deepseek-harness/releases/tag/v' + version + '">Release</a>'
+                endpoint = 'https://api.github.com/repos/LeeXieXie/deepseek-harness/releases/tags/v' + version
                 tag = 'v' + version
             elif name == 'jcode-desktop':
                 responses[rule['url']] = '<id>https://github.com/1jehuang/jcode-desktop/releases/tag/desktop-v' + version + '</id>'
@@ -86,7 +105,7 @@ class WatchTests(unittest.TestCase):
             elif name == 'zcode':
                 fields = {'matchAppversion': '3.16.2', 'matchCommit': '3c5b22764937'}
                 tag = 'v3.16.2-upstream.3c5b22764937'
-                endpoint = 'https://api.github.com/repos/LeeXieXie/zcode-releases/releases/latest'
+                endpoint = 'https://api.github.com/repos/LeeXieXie/ZCode/releases/latest'
                 responses[rule['url']] = json.dumps({'upstream': {'repository': 'zai-org/ZCode', 'sha': '3c5b22764937' + '0'*28, 'version': '3.16.2', 'date': '2026-10-20T06:23:05Z'}})
             else:
                 responses[rule['url']] = json.dumps({'version': version})

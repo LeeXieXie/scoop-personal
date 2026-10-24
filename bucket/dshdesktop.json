@@ -1,7 +1,7 @@
 {
     "version": "0.2.1-rc.3.20261024.1",
     "description": "Unofficial portable Windows build of DeepSeek Harness, an Electron AI coding workspace.",
-    "homepage": "https://github.com/LeeXieXie/dshdesktop-releases",
+    "homepage": "https://github.com/LeeXieXie/deepseek-harness",
     "license": "MIT",
     "notes": [
         "Unofficial, unsigned community build, not an official DeepSeek distribution. Based on upstream 0.2.1-rc.3, including prerelease code.",
@@ -13,7 +13,7 @@
     ],
     "architecture": {
         "64bit": {
-            "url": "https://github.com/LeeXieXie/dshdesktop-releases/releases/download/v0.2.1-rc.3.20261024.1/dshdesktop-0.2.1-rc.3.20261024.1-windows-x64.zip",
+            "url": "https://github.com/LeeXieXie/deepseek-harness/releases/download/v0.2.1-rc.3.20261024.1/dshdesktop-0.2.1-rc.3.20261024.1-windows-x64.zip",
             "hash": "9a6fa842d68cffb5558d314fd142a31f54627f0d48baed8974b42f5e008f1003"
         }
     },
@@ -24,13 +24,13 @@
         ]
     ],
     "checkver": {
-        "url": "https://github.com/LeeXieXie/dshdesktop-releases/releases/latest",
+        "url": "https://github.com/LeeXieXie/deepseek-harness/releases/latest",
         "regex": "/releases/tag/v(\\d+(?:\\.\\d+)+(?:-[0-9A-Za-z.-]+)?)[\"/<>]"
     },
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/LeeXieXie/dshdesktop-releases/releases/download/v$version/dshdesktop-$version-windows-x64.zip"
+                "url": "https://github.com/LeeXieXie/deepseek-harness/releases/download/v$version/dshdesktop-$version-windows-x64.zip"
             }
         },
         "hash": {
