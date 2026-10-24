@@ -56,7 +56,7 @@ jobs:
         run: |
           $env:SCOOP_HOME="$(Convert-Path '.\scoop_core')"
           $changed = @(git -C .\my_bucket diff --name-only HEAD~1 HEAD)
-          $apps = @('smartsearch', 'jcode', 'jcode-desktop') | Where-Object { $changed -contains "bucket/$_.json" }
+          $apps = @('smartsearch', 'jcode', 'jcode-desktop', 'dshdesktop') | Where-Object { $changed -contains "bucket/$_.json" }
           if ($apps) {
             .\my_bucket\scripts\test-portable-packages.ps1 -App $apps
           }

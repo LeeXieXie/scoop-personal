@@ -1,4 +1,5 @@
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -49,6 +50,21 @@ class WatchTests(unittest.TestCase):
         version, fields, release = w.discover(m, lambda url: '<feed><id>https://github.com/1jehuang/jcode-desktop/releases/tag/desktop-v0.7.0-beta.1</id></feed>')
         self.assertEqual(version, '0.7.0-beta.1')
 
+    def test_dshdesktop_community_versions(self):
+        m = json.loads(Path('bucket/dshdesktop.json').read_text())
+        rule = m['checkver']
+        # Scoop's default GitHub regex accepts digits/dots only. The manifest
+        # must override it to retain the RC suffix and community build number.
+        pattern = rule.get('regex', r'/releases/tag/(?:v|V)?([\d.]+)')
+        for version in ['0.2.1-rc.3.20261024.1', '0.2.1-rc.3.20261024.2', '0.2.1.20261025.1']:
+            page = '<a href="/LeeXieXie/dshdesktop-releases/releases/tag/v' + version + '">Release</a>'
+            match = re.search(pattern, page)
+            self.assertIsNotNone(match)
+            self.assertEqual(match[1], version)
+            found, fields, release = w.discover(m, lambda url: page)
+            self.assertEqual(found, version)
+        self.assertGreater(w.compare('0.2.1-rc.3.20261024.2', m['version']), 0)
+
     def test_full_bucket_and_npm_readiness(self):
         manifests = {p.stem: json.loads(p.read_text()) for p in Path('bucket').glob('*.json')}
         responses = {}
@@ -58,6 +74,10 @@ class WatchTests(unittest.TestCase):
             fields = {}
             if 'github' in rule:
                 endpoint = 'https://api.github.com/repos/' + rule['github'].split('github.com/')[1] + '/releases/latest'
+                tag = 'v' + version
+            elif name == 'dshdesktop':
+                responses[rule['url']] = '<a href="/LeeXieXie/dshdesktop-releases/releases/tag/v' + version + '">Release</a>'
+                endpoint = 'https://api.github.com/repos/LeeXieXie/dshdesktop-releases/releases/tags/v' + version
                 tag = 'v' + version
             elif name == 'jcode-desktop':
                 responses[rule['url']] = '<id>https://github.com/1jehuang/jcode-desktop/releases/tag/desktop-v' + version + '</id>'
@@ -81,7 +101,7 @@ class WatchTests(unittest.TestCase):
                 names |= {'magpie-windows-amd64.exe', 'magpie-windows-arm64.exe', 'magpie-cli-windows-amd64.exe', 'magpie-cli-windows-arm64.exe', 'SHA256SUMS'}
             responses[endpoint] = json.dumps({'tag_name': tag, 'assets': [{'name': n, 'state': 'uploaded', 'size': 1} for n in names]})
         report = w.scan(Path('bucket'), responses.__getitem__)
-        self.assertEqual(len(report['results']), 9)
+        self.assertEqual(len(report['results']), len(manifests))
         self.assertEqual(report['errors'], 0, report)
         self.assertTrue(all(r['status'] == 'current' for r in report['results']), report)
         responses['https://registry.npmjs.org/@opencode/cli-windows-arm64/' + manifests['opencode2']['version']] = '{}'

@@ -1,4 +1,4 @@
-param([ValidateSet('smartsearch', 'jcode', 'jcode-desktop')][string[]]$App = @('smartsearch', 'jcode', 'jcode-desktop'))
+param([ValidateSet('smartsearch', 'jcode', 'jcode-desktop', 'dshdesktop')][string[]]$App = @('smartsearch', 'jcode', 'jcode-desktop', 'dshdesktop'))
 
 $ErrorActionPreference = 'Stop'
 if (!$env:SCOOP_HOME) { $env:SCOOP_HOME = Convert-Path (scoop prefix scoop) }
@@ -33,19 +33,19 @@ function Get-PeMachine([string]$Path) {
 
 foreach ($name in $App) {
     $manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot "../bucket/$name.json") -Raw | ConvertFrom-Json
-    foreach ($arch in @('64bit', 'arm64')) {
+    foreach ($arch in @($manifest.architecture.PSObject.Properties.Name)) {
         $platform = $manifest.architecture.$arch
         $directory = Join-Path $sandbox "$name-$arch"
         New-Item -ItemType Directory -Path $directory | Out-Null
         $archive = Join-Path $sandbox ([Uri]$platform.url).Segments[-1]
-        Invoke-WebRequest -Uri $platform.url -OutFile $archive
+        Invoke-WebRequest -Uri $platform.url -OutFile $archive -UseBasicParsing
         if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLower() -ne $platform.hash) {
             throw "Downloaded $name/$arch hash does not match the manifest."
         }
         $hashConfig = $manifest.autoupdate.hash
         if ($manifest.autoupdate.architecture.$arch.hash) { $hashConfig = $manifest.autoupdate.architecture.$arch.hash }
         $checksumsUrl = $hashConfig.url.Replace('$baseurl', $platform.url.Substring(0, $platform.url.LastIndexOf('/')))
-        $checksums = (Invoke-WebRequest -Uri $checksumsUrl).Content
+        $checksums = (Invoke-WebRequest -Uri $checksumsUrl -UseBasicParsing).Content
         if ($checksums -is [byte[]]) { $checksums = [Text.Encoding]::UTF8.GetString($checksums) }
         $filename = [Uri]::UnescapeDataString(([Uri]$platform.url).Segments[-1])
         $checksumLine = '(?m)^' + [regex]::Escape($platform.hash) + '\s+\*?' + [regex]::Escape($filename) + '\s*$'
@@ -58,6 +58,7 @@ foreach ($name in $App) {
         Expand-7zipArchive @options
         $exe = switch ($name) {
             'smartsearch' { 'SmartSearch.Desktop.exe' }
+            'dshdesktop' { 'DeepSeek Harness.exe' }
             'jcode-desktop' { 'jcode-desktop.exe' }
             default { $platform.bin[0][0] }
         }
@@ -82,6 +83,18 @@ foreach ($name in $App) {
             $icon = New-Object Drawing.Icon (Join-Path $directory 'Jcode.ico')
             try { if ($icon.Width -ne 256 -or $icon.Height -ne 256) { throw 'Invalid desktop shortcut icon dimensions.' } }
             finally { $icon.Dispose() }
+        } elseif ($name -eq 'dshdesktop') {
+            foreach ($file in @('resources/app.asar', 'resources/runtime/versions.json', 'resources/runtime/primary-runtime/runtime.json', 'resources/runtime/primary-runtime/dependencies/node/bin/node.exe', 'resources/runtime/primary-runtime/dependencies/python/python.exe', 'resources/runtime/primary-runtime/dependencies/pnpm/bin/pnpm.cjs', 'resources/runtime/cli/command-manager.js', 'build-source.json', 'LICENSE', 'THIRD_PARTY_NOTICES')) {
+                if (!(Test-Path -LiteralPath (Join-Path $directory $file) -PathType Leaf)) { throw "Incomplete DSH Desktop bundle: $file" }
+            }
+            $record = Get-Content -LiteralPath (Join-Path $directory 'build-source.json') -Raw | ConvertFrom-Json
+            if ($record.version -ne $manifest.version -or $record.platform -ne 'windows' -or $record.architecture -ne 'x64' -or $record.unsigned -cne $true -or $record.automaticUpdates -cne $false -or $record.mandatoryUpdatePolicy -cne $false) { throw 'Unexpected DSH build source/update metadata.' }
+            if (Test-Path -LiteralPath (Join-Path $directory 'resources/app-update.yml')) { throw 'Community package must not use an official updater feed.' }
+            foreach ($file in @('resources/runtime/primary-runtime/dependencies/node/bin/node.exe', 'resources/runtime/primary-runtime/dependencies/python/python.exe')) {
+                if ((Get-PeMachine (Join-Path $directory $file)) -ne $expectedMachine) { throw "Wrong DSH bundled runtime architecture: $file" }
+            }
+            $runtime = Get-Content -LiteralPath (Join-Path $directory 'resources/runtime/primary-runtime/runtime.json') -Raw | ConvertFrom-Json
+            if ($runtime.desktopVersion -ne $record.productVersion -or $runtime.platform -ne 'win32' -or $runtime.arch -ne 'x64') { throw 'Unexpected DSH bundled runtime metadata.' }
         } elseif ($arch -eq '64bit') {
             $oldHome = $env:JCODE_HOME
             $oldUpdate = $env:JCODE_NO_AUTO_UPDATE
