@@ -187,8 +187,59 @@ class TimerTests(unittest.TestCase):
         response = Response()
         response.read = lambda *args: b'SECRET not json'
         with self.assertRaises(timer.TimerError) as error:
-            self.client(Opener(response)).cycle()
+            self.client(Opener(response), get_retries=0).cycle()
         self.assertNotIn('SECRET', str(error.exception))
+    def test_invalid_json_retries_then_dispatches(self):
+        for body in (b'SECRET not json', b'\xffSECRET', b''):
+            with self.subTest(body=body):
+                response = Response()
+                response.read = lambda *args: body
+                opener = Opener(response, Response(data={'workflow_runs': []}), Response(204))
+                waits = []
+                client = timer.GitHubClient(self.config(), 'SECRET', opener=opener,
+                                           wait=lambda seconds: waits.append(seconds) or False)
+                self.assertEqual(client.cycle(), 'dispatched')
+                self.assertEqual(waits, [1])
+                self.assertEqual([r.method for r, _ in opener.requests], ['GET', 'GET', 'POST'])
+
+    def test_invalid_json_exhaustion_is_safe_and_never_dispatches(self):
+        body = b'SECRET remote body \xc3\xa9'
+        for retries in (0, 2):
+            with self.subTest(retries=retries):
+                response = Response()
+                response.read = lambda *args: body
+                opener = Opener(*([response] * (retries + 1)))
+                waits = []
+                output = io.StringIO()
+                result = timer.main(['--once', '--get-retries', str(retries)],
+                                    environ={'GH_TOKEN': 'SECRET'}, opener=opener,
+                                    wait=lambda seconds: waits.append(seconds) or False,
+                                    output=output)
+                self.assertEqual(result, 1)
+                message = json.loads(output.getvalue().splitlines()[-1])['message']
+                self.assertEqual(message, f'GET HTTP 200: invalid JSON (body bytes: {len(body)})')
+                self.assertNotIn('SECRET', output.getvalue())
+                self.assertNotIn('remote body', output.getvalue())
+                self.assertEqual(waits, [1, 2][:retries])
+                self.assertEqual([r.method for r, _ in opener.requests], ['GET'] * (retries + 1))
+
+    def test_invalid_json_retry_wait_honors_stop(self):
+        for set_event in (False, True):
+            event = threading.Event()
+            response = Response()
+            response.read = lambda *args: b'SECRET invalid'
+            opener = Opener(response)
+            def wait(seconds):
+                self.assertEqual(seconds, 1)
+                if set_event:
+                    event.set()
+                return not set_event
+            client = timer.GitHubClient(self.config(), 'SECRET', opener=opener,
+                                       wait=wait, stop_event=event)
+            with self.assertRaisesRegex(timer.TimerError, 'stopped during GET retry wait'):
+                client.cycle()
+            self.assertEqual(len(opener.requests), 1)
+
     def test_retry_wait_is_interruptible(self):
         opener = Opener(http_error(503))
         client = timer.GitHubClient(self.config(), 'SECRET', opener=opener, wait=lambda _: True)

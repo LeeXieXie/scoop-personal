@@ -109,11 +109,13 @@ class GitHubClient:
                         try:
                             return json.loads(body)
                         except (ValueError, UnicodeError):
-                            raise TimerError('GET returned invalid JSON') from None
-                    if method == 'POST' and status in (200, 201, 202, 204):
-                        return None
-                    retryable = status == 429 or 500 <= status <= 599
-                    message = self.http_message(method, status)
+                            retryable = True
+                            message = f'GET HTTP {status}: invalid JSON (body bytes: {len(body)})'
+                    else:
+                        if method == 'POST' and status in (200, 201, 202, 204):
+                            return None
+                        retryable = status == 429 or 500 <= status <= 599
+                        message = self.http_message(method, status)
             except HTTPError as error:
                 status = error.code
                 retry_after = error.headers.get('Retry-After', '') if error.headers else ''
