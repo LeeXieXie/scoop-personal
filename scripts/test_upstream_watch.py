@@ -29,15 +29,16 @@ class WatchTests(unittest.TestCase):
         self.assertIn('/dshdesktop-$version-', manifest['autoupdate']['architecture']['64bit']['url'])
 
     def test_renamed_community_repositories(self):
-        for name, repository, digest in [
-            ('deepseek-harness', 'LeeXieXie/deepseek-harness', '9a6fa842d68cffb5558d314fd142a31f54627f0d48baed8974b42f5e008f1003'),
-            ('zcode', 'LeeXieXie/ZCode', '441d65585aaad2ec72fdc3841a2af405ef0eed63d79470650466ece06045fb19'),
+        for name, repository in [
+            ('deepseek-harness', 'LeeXieXie/deepseek-harness'),
+            ('zcode', 'LeeXieXie/ZCode'),
         ]:
             manifest = json.loads(Path('bucket', name + '.json').read_text())
             base = 'https://github.com/' + repository
             self.assertEqual(manifest['homepage'], base)
             self.assertTrue(manifest['checkver']['url'].startswith(base + '/releases/latest'))
-            self.assertEqual(manifest['architecture']['64bit']['hash'], digest)
+            # Identity checks must survive legitimate Excavator version/hash updates.
+            self.assertRegex(manifest['architecture']['64bit']['hash'], r'^[0-9a-f]{64}$')
             self.assertTrue(manifest['architecture']['64bit']['url'].startswith(base + '/releases/download/'))
             self.assertTrue(manifest['autoupdate']['architecture']['64bit']['url'].startswith(base + '/releases/download/'))
         zcode = json.loads(Path('bucket/zcode.json').read_text())
@@ -91,7 +92,7 @@ class WatchTests(unittest.TestCase):
             self.assertEqual(match[1], version)
             found, fields, release = w.discover(m, lambda url: page)
             self.assertEqual(found, version)
-        self.assertGreater(w.compare('0.2.1-rc.3.20261024.2', m['version']), 0)
+        self.assertGreater(w.compare('0.2.1-rc.3.20261024.2', '0.2.1-rc.3.20261024.1'), 0)
 
     def test_full_bucket_and_npm_readiness(self):
         manifests = {p.stem: json.loads(p.read_text()) for p in Path('bucket').glob('*.json')}

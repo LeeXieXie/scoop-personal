@@ -4,7 +4,7 @@
     "homepage": "https://github.com/LeeXieXie/deepseek-harness",
     "license": "MIT",
     "notes": [
-        "Unofficial, unsigned community build, not an official DeepSeek distribution. Based on upstream 0.2.1-rc.3, including prerelease code.",
+        "Unofficial, unsigned community build, not an official DeepSeek distribution. May include upstream prerelease code. Exact upstream version and commit are recorded in the release build-source.json.",
         "Uses a bundled Node/Python runtime. No separate dsh CLI installation is required or registered by this manifest.",
         "The reviewed community patch omits mandatory update-policy metadata for unsigned builds. No official updater feed is configured. Use Scoop for updates.",
         "User data stays in upstream default locations. No existing configuration is migrated or removed. Do not run concurrently with an official installation sharing that data.",

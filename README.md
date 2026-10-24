@@ -112,7 +112,7 @@ scoop update jcode-desktop
 
 配置保存在 `%APPDATA%\Pebrel`，不位于 Scoop 安装目录，无需额外的 `persist` 或自动迁移脚本。上游首次启动会配置 AI CLI 通知集成，可通过 `pebrel setup-ai --remove` 撤销。请使用 Scoop 更新，避免使用应用内更新安装器。清单通过 GitHub 最新稳定版检测更新，并从官方 `SHA256SUMS` 获取两个架构的 SHA-256 校验值，参与全包 Upstream Watch，并由每 30 分钟一次的 Excavator 任务兜底。
 
-[`deepseek-harness`](bucket/deepseek-harness.json)：[DeepSeek Harness 上游源码](https://github.com/deepseek-ai/deepseek-harness) · [自建社区构建仓库](https://github.com/LeeXieXie/deepseek-harness)。Windows x64 便携 ZIP，当前社区版本 `0.2.1-rc.3.20261024.1`，固定上游提交 `22ddee3792402c3e70ec5f86a63c3e3e895a2f60`（MIT）。自带 Node/Python、完整桌面 Host 与依赖，不需要单独安装 CLI，也不注册可能冲突的 `dsh` 命令。开始菜单入口为 `DeepSeek Harness`，与官方 Windows `productName` 一致，名称不再追加 `Desktop` 或 `Community`；Scoop 包 ID 为 `deepseek-harness`。
+[`deepseek-harness`](bucket/deepseek-harness.json)：[DeepSeek Harness 上游源码](https://github.com/deepseek-ai/deepseek-harness) · [自建社区构建仓库](https://github.com/LeeXieXie/deepseek-harness)。Windows x64 便携 ZIP，首次收录社区版本 `0.2.1-rc.3.20261024.1`，来源提交 `22ddee3792402c3e70ec5f86a63c3e3e895a2f60`（MIT），当前版本以清单和 Release 的 `build-source.json` 为准。自带 Node/Python、完整桌面 Host 与依赖，不需要单独安装 CLI，也不注册可能冲突的 `dsh` 命令。开始菜单入口为 `DeepSeek Harness`，与官方 Windows `productName` 一致，名称不再追加 `Desktop` 或 `Community`；Scoop 包 ID 为 `deepseek-harness`。
 
 ```powershell
 scoop install personal/deepseek-harness
@@ -129,7 +129,7 @@ scoop install personal/deepseek-harness
 
 卸载时不要加 `--purge`；上述操作保留上游默认用户目录中的配置，不迁移或删除现有数据。不要同时安装新旧两个包，它们共享同名开始菜单快捷方式和用户配置。
 
-这是非官方未签名构建，包含上游 RC 代码，可能触发 SmartScreen。构建对 unsigned 模式进行两处精确配置适配，不嵌入官方强制升级策略和自动更新 feed，由 Scoop 更新；不修改认证、沙箱或运行时完整性验证。Release 附带 `SHA256SUMS`、`build-source.json` 与许可文件。配置保留在上游默认用户目录，不迁移或删除现有数据，勿与共享配置的官方版同时运行。上游完整打包烟测与独立 Windows 进程启动通过，但未测试账户登录、模型会话及完整 GUI 交互；启动时有非致命 mandatory-status IPC 警告，详见 Release 说明。包参与全部上游监听，检测的是本人的已发布社区构建，不会在上游源码变化后自动重建二进制。
+这是非官方未签名构建，包含上游 RC 代码，可能触发 SmartScreen。构建对 unsigned 模式进行两处精确配置适配，不嵌入官方强制升级策略和自动更新 feed，由 Scoop 更新；不修改认证、沙箱或运行时完整性验证。Release 附带 `SHA256SUMS`、`build-source.json` 与许可文件。配置保留在上游默认用户目录，不迁移或删除现有数据，勿与共享配置的官方版同时运行。上游完整打包烟测与独立 Windows 进程启动通过，但未测试账户登录、模型会话及完整 GUI 交互；启动时有非致命 mandatory-status IPC 警告，详见 Release 说明。包参与全部上游监听，社区构建仓库自动检测 `deepseek-ai/deepseek-harness` 的 `master` 新提交，解析该提交的版本与 pnpm 配置，只有通过打包、完整性和烟测后才发布新社区 Release。每个产物仍记录确切提交以便追溯，不代表永久锁定同一提交。GitHub 定时检查最短为 5 分钟，可能延迟；Scoop 端由服务器每 3 分钟检查已完成发布的社区包。补丁不兼容或构建失败时停止发布，不生成虚假更新。
 
 ## 维护与添加应用
 
