@@ -47,7 +47,7 @@ jobs:
         run: |
           export DOCKER_CONFIG="$(mktemp -d)"
           docker compose -f deploy/server-timer/compose.baota.yml pull
-          docker compose -f deploy/server-timer/compose.baota.yml config --format json | python3 -c 'import json,sys; c=json.load(sys.stdin)["services"]["scheduler"]; assert c["command"] == ["--interval", "300"]; assert "ports" not in c and "volumes" not in c and "build" not in c; assert c["read_only"] and c["user"] == "10001:10001"; assert "GH_TOKEN" in c["environment"] and "GH_TOKEN_FILE" not in c["environment"]'
+          docker compose -f deploy/server-timer/compose.baota.yml config --format json | python3 -c 'import json,sys; c=json.load(sys.stdin)["services"]["scheduler"]; assert c["command"] == ["--interval", "180"]; assert "ports" not in c and "volumes" not in c and "build" not in c; assert c["read_only"] and c["user"] == "10001:10001"; assert "GH_TOKEN" in c["environment"] and "GH_TOKEN_FILE" not in c["environment"]'
           docker compose -f deploy/server-timer/compose.baota.yml run --rm --no-deps scheduler --help
           docker compose -f deploy/server-timer/compose.baota.yml run --rm --no-deps -e GH_TOKEN scheduler --check
           docker compose -f deploy/server-timer/compose.baota.yml run --rm --no-deps -e GH_TOKEN scheduler --check --interval 180

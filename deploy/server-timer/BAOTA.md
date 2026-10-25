@@ -1,6 +1,6 @@
 # 宝塔面板部署：每 3–5 分钟触发全包检测
 
-编排使用滚动预构建镜像 `ghcr.io/leexiexie/scoop-upstream-timer:latest`，同时保留 `1.0.1` 版本标签供回退，目标平台为 Linux amd64 / arm64。每次升级需拉取镜像并重建容器，`latest` 不会自动替换已运行的容器。不需要下载脚本、创建挂载文件、本地构建或创建 `.env`。这不代表已在你的宝塔服务器安装。
+编排使用滚动预构建镜像 `ghcr.io/leexiexie/scoop-upstream-timer:latest`。传输修复版 `1.0.2` 在本仓库 **Publish Server Image** 工作流发布成功后可用，同时更新 `latest`，保留完整源码提交的 `sha-<提交哈希>` 标签，旧 `1.0.0` / `1.0.1` 标签不被本次发布覆盖。目标平台为 Linux amd64 / arm64。每次升级需拉取镜像并重建容器，`latest` 不会自动替换已运行的容器。不需要下载脚本、创建挂载文件、本地构建或创建 `.env`。发布镜像不代表已在你的宝塔服务器安装或升级。
 
 ## 创建编排
 
@@ -31,7 +31,7 @@ command: ["--interval", "180"]
 
 ## 从旧版本升级
 
-旧编排使用 `1.0.0` 镜像，且显式 `command: ["--interval", "300"]` 会覆盖新镜像的默认间隔。升级时同时把 `image` 改为 `ghcr.io/leexiexie/scoop-upstream-timer:latest`，把 `command` 改为 `["--interval", "180"]`。等待新镜像发布成功后，在宝塔强制拉取镜像并重新部署/重建容器，**仅重启旧容器不足以升级镜像或参数**。命令行等效操作（在保存编排的目录执行）：
+从 `1.0.0` 或 `1.0.1` 升级时，可把 `image` 改为 `ghcr.io/leexiexie/scoop-upstream-timer:1.0.2` 固定本次修复版，或保留 `ghcr.io/leexiexie/scoop-upstream-timer:latest` 跟随滚动发布。旧编排显式 `command: ["--interval", "300"]` 会覆盖新镜像的默认间隔，需要默认 3 分钟时把 `command` 改为 `["--interval", "180"]`。保留服务器上已有的 Token 环境变量，不需要重新生成 Token。等待新镜像发布成功后，在宝塔强制拉取镜像并重新部署/重建容器，**仅重启旧容器不足以升级镜像、环境变量或参数**。命令行等效操作（在保存编排的目录执行，编排文件名不是默认名称时加 `-f 文件名`）：
 
 ```sh
 docker compose pull scheduler
@@ -39,6 +39,12 @@ docker compose up -d --force-recreate scheduler
 ```
 
 不要将包含真实 Token 的编排复制到聊天或提交到仓库。升级后检查日志中的 `interval_seconds` 为 `180`，并观察两次自然周期。
+
+## 1.0.2 传输修复边界
+
+GET 请求协商 gzip 压缩，也兼容未压缩响应；线上接收数据和解压后的 JSON 分别限制为 4 MiB。解析前检测 Content-Length 不完整响应及损坏/截断的 gzip，临时传输或 JSON 解析失败使用有界 GET 重试，持续失败则跳过触发。诊断仅包含安全的数字或白名单元数据，不记录响应正文、Token 或任意远端响应头/错误文本。
+
+默认 180 秒间隔、最近 100 次工作流运行的排队检查保持不变。派发 POST 仍不自动重试，以免响应丢失后重复触发。该修复不是网络永不失败或更新恰好一次的保证；云端验证通过也不能代替宝塔升级及自然周期验收。
 
 ## 确认运行
 

@@ -8,7 +8,9 @@ prove Actions write permission. An uncertain POST is never automatically retried
 import argparse
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import gzip
 import http.client
+import io
 import json
 import math
 import os
@@ -17,6 +19,7 @@ import signal
 import sys
 import threading
 import time
+import zlib
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -24,6 +27,55 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 class TimerError(Exception):
     """A sanitized operational failure. Never contains remote response bodies."""
+
+
+class GetResponseError(TimerError):
+    """A sanitized response failure eligible for the bounded GET retries."""
+
+
+MAX_RESPONSE_BYTES = 4 * 1024 * 1024
+
+
+def read_get_body(response):
+    headers = getattr(response, 'headers', None) or {}
+    encoding = headers.get('Content-Encoding', '').strip().lower()
+    if encoding not in ('', 'identity', 'gzip'):
+        raise TimerError('GET HTTP 200: unsupported content encoding')
+    length = headers.get('Content-Length', '').strip()
+    expected = None
+    if not getattr(response, 'chunked', False):
+        framing_length = getattr(response, 'length', None)
+        if isinstance(framing_length, int) and framing_length >= 0:
+            expected = framing_length
+        elif re.fullmatch(r'[0-9]+', length):
+            digits = length.lstrip('0') or '0'
+            if len(digits) > 10:
+                raise TimerError('GET response exceeds size limit')
+            expected = int(digits)
+        if expected is not None and expected > MAX_RESPONSE_BYTES:
+            raise TimerError('GET response exceeds size limit')
+    try:
+        body = response.read(MAX_RESPONSE_BYTES + 1)
+    except http.client.IncompleteRead:
+        raise GetResponseError('GET HTTP 200: incomplete response body') from None
+    if len(body) > MAX_RESPONSE_BYTES:
+        raise TimerError('GET response exceeds size limit')
+    if expected is not None and len(body) != expected:
+        raise GetResponseError('GET HTTP 200: incomplete response body '
+                               f'(wire bytes: {len(body)}, expected: {expected})')
+    if encoding == 'gzip':
+        wire_size = len(body)
+        failure = f'GET HTTP 200: invalid gzip response (wire bytes: {wire_size})'
+        if not body:
+            raise GetResponseError(failure)
+        try:
+            with gzip.GzipFile(fileobj=io.BytesIO(body)) as stream:
+                body = stream.read(MAX_RESPONSE_BYTES + 1)
+        except (OSError, EOFError, zlib.error):
+            raise GetResponseError(failure) from None
+        if len(body) > MAX_RESPONSE_BYTES:
+            raise TimerError('GET decoded response exceeds size limit')
+    return body
 
 
 @dataclass(frozen=True)
@@ -95,6 +147,8 @@ class GitHubClient:
                                    'User-Agent': 'scoop-personal-server-timer',
                                    'Content-Type': 'application/json'},
                           data=json.dumps(payload).encode('utf-8') if payload is not None else None)
+        if method == 'GET':
+            request.add_header('Accept-Encoding', 'gzip')
         attempts = 1 + (self.config.get_retries if method == 'GET' else 0)
         for attempt in range(attempts):
             retryable = False
@@ -103,9 +157,7 @@ class GitHubClient:
                 with self.opener.open(request, timeout=self.config.timeout) as response:
                     status = response.status
                     if method == 'GET' and status == 200:
-                        body = response.read(4 * 1024 * 1024 + 1)
-                        if len(body) > 4 * 1024 * 1024:
-                            raise TimerError('GET response exceeds size limit')
+                        body = read_get_body(response)
                         try:
                             return json.loads(body)
                         except (ValueError, UnicodeError):
@@ -116,6 +168,9 @@ class GitHubClient:
                             return None
                         retryable = status == 429 or 500 <= status <= 599
                         message = self.http_message(method, status)
+            except GetResponseError as error:
+                retryable = True
+                message = str(error)
             except HTTPError as error:
                 status = error.code
                 retry_after = error.headers.get('Retry-After', '') if error.headers else ''

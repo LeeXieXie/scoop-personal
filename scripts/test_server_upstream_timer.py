@@ -1,4 +1,6 @@
 """Offline tests. Run: python -m unittest discover -s scripts -p test_server_upstream_timer.py"""
+import gzip
+import http.client
 import io
 import json
 import os
@@ -40,6 +42,17 @@ def http_error(code):
     return HTTPError('https://api.github.com/private', code, 'SECRET', {}, io.BytesIO(b'SECRET'))
 
 
+def wire_response(body, headers=()):
+    class Socket:
+        def makefile(self, mode):
+            return io.BytesIO(b'HTTP/1.1 200 OK\r\n' + b''.join(
+                name.encode('ascii') + b': ' + value.encode('ascii') + b'\r\n'
+                for name, value in headers) + b'\r\n' + body)
+    response = http.client.HTTPResponse(Socket())
+    response.begin()
+    return response
+
+
 class TimerTests(unittest.TestCase):
     def config(self, **kwargs):
         return timer.Config(**kwargs)
@@ -49,6 +62,195 @@ class TimerTests(unittest.TestCase):
         cfg = self.config()
         self.assertEqual((cfg.repo, cfg.workflow, cfg.ref, cfg.interval),
                          ('LeeXieXie/scoop-personal', 'upstream-watch.yml', 'master', 180))
+    def test_get_negotiates_gzip_but_post_does_not(self):
+        opener = Opener(Response(data={'workflow_runs': []}), Response(204))
+        self.assertEqual(self.client(opener).cycle(), 'dispatched')
+        self.assertEqual(opener.requests[0][0].get_header('Accept-encoding'), 'gzip')
+        self.assertIsNone(opener.requests[1][0].get_header('Accept-encoding'))
+
+    def test_real_identity_and_gzip_responses(self):
+        body = b'{"workflow_runs": []}'
+        for encoding in (None, 'identity', 'gzip', 'GZip'):
+            with self.subTest(encoding=encoding):
+                wire = gzip.compress(body) if encoding and encoding.lower() == 'gzip' else body
+                headers = [('Content-Length', str(len(wire)))]
+                if encoding:
+                    headers.append(('Content-Encoding', encoding))
+                opener = Opener(wire_response(wire, headers), Response(204))
+                self.assertEqual(self.client(opener).cycle(), 'dispatched')
+
+    def test_missing_and_invalid_content_length_fall_back_to_bounded_read(self):
+        for value in (None, 'SECRET invalid', '-1', '1, 1'):
+            with self.subTest(value=value):
+                headers = [] if value is None else [('Content-Length', value)]
+                opener = Opener(wire_response(b'{"workflow_runs": []}', headers), Response(204))
+                self.assertEqual(self.client(opener).cycle(), 'dispatched')
+
+    def test_valid_json_prefix_with_short_content_length_retries_before_dispatch(self):
+        body = b'{"workflow_runs": []}'
+        opener = Opener(wire_response(body, [('Content-Length', str(len(body) + 20))]),
+                        Response(data={'workflow_runs': [{'status': 'queued'}]}))
+        waits = []
+        client = timer.GitHubClient(self.config(), 'SECRET', opener=opener,
+                                   wait=lambda seconds: waits.append(seconds) or False)
+        self.assertEqual(client.cycle(), 'busy')
+        self.assertEqual(waits, [1])
+        self.assertEqual([request.method for request, _ in opener.requests], ['GET', 'GET'])
+
+    def test_short_content_length_exhaustion_is_sanitized_and_never_dispatches(self):
+        body = b'{"workflow_runs": [], "SECRET": "remote body"}'
+        headers = [('Content-Length', str(len(body) + 10)),
+                   ('Content-Type', 'SECRET arbitrary-header')]
+        opener = Opener(*(wire_response(body, headers) for _ in range(3)))
+        output = io.StringIO()
+        waits = []
+        self.assertEqual(timer.main(['--once'], environ={'GH_TOKEN': 'SECRET'}, opener=opener,
+                                    wait=lambda seconds: waits.append(seconds) or False,
+                                    output=output), 1)
+        message = json.loads(output.getvalue().splitlines()[-1])['message']
+        self.assertIn('incomplete response body', message)
+        self.assertIn(str(len(body)), message)
+        self.assertNotIn('invalid JSON', message)
+        for secret in ('SECRET', 'remote body', 'arbitrary-header'):
+            self.assertNotIn(secret, output.getvalue())
+        self.assertEqual(waits, [1, 2])
+        self.assertEqual([request.method for request, _ in opener.requests], ['GET'] * 3)
+
+    def test_chunked_transfer_overrides_content_length(self):
+        body = b'{"workflow_runs": []}'
+        chunked = f'{len(body):x}\r\n'.encode() + body + b'\r\n0\r\n\r\n'
+        for length in ('1', str(8 * 1024 * 1024)):
+            with self.subTest(length=length):
+                opener = Opener(wire_response(chunked, [('Transfer-Encoding', 'chunked'),
+                                                       ('Content-Length', length)]), Response(204))
+                self.assertEqual(self.client(opener).cycle(), 'dispatched')
+
+    def test_stdlib_noncanonical_content_length_retries_without_post(self):
+        body = b'{"workflow_runs": []}'
+        for length in ('+71', '7_1'):
+            with self.subTest(length=length):
+                response = wire_response(body, [('Content-Length', length)])
+                opener = Opener(response, Response(data={'workflow_runs': [{'status': 'queued'}]}))
+                waits = []
+                client = timer.GitHubClient(self.config(), 'SECRET', opener=opener,
+                                           wait=lambda seconds: waits.append(seconds) or False)
+                self.assertEqual(client.cycle(), 'busy')
+                self.assertEqual(waits, [1])
+                self.assertEqual([request.method for request, _ in opener.requests], ['GET', 'GET'])
+
+    def test_complete_stdlib_noncanonical_content_length_can_dispatch(self):
+        body = b'{"workflow_runs": []}'
+        for length in (f'+{len(body)}', f'{len(body) // 10}_{len(body) % 10}'):
+            with self.subTest(length=length):
+                opener = Opener(wire_response(body, [('Content-Length', length)]), Response(204))
+                self.assertEqual(self.client(opener).cycle(), 'dispatched')
+                self.assertEqual([request.method for request, _ in opener.requests], ['GET', 'POST'])
+
+    def test_nonchunked_transfer_encoding_preserves_content_length_check(self):
+        body = b'{"workflow_runs": []}'
+        for encoding in ('identity', 'gzip', 'chunked, identity'):
+            with self.subTest(encoding=encoding):
+                response = wire_response(body, [('Content-Length', str(len(body) + 20)),
+                                                ('Transfer-Encoding', encoding)])
+                opener = Opener(response, Response(data={'workflow_runs': [{'status': 'queued'}]}))
+                waits = []
+                client = timer.GitHubClient(self.config(), 'SECRET', opener=opener,
+                                           wait=lambda seconds: waits.append(seconds) or False)
+                self.assertEqual(client.cycle(), 'busy')
+                self.assertEqual(waits, [1])
+                self.assertEqual([request.method for request, _ in opener.requests], ['GET', 'GET'])
+
+    def test_incomplete_chunked_body_is_retryable(self):
+        chunked = b'80\r\n{"SECRET": "remote body"}'
+        opener = Opener(wire_response(chunked, [('Transfer-Encoding', 'chunked')]),
+                        Response(data={'workflow_runs': [{'status': 'queued'}]}))
+        self.assertEqual(self.client(opener).cycle(), 'busy')
+        self.assertEqual([request.method for request, _ in opener.requests], ['GET', 'GET'])
+
+    def test_incomplete_chunked_exhaustion_has_safe_body_diagnostic(self):
+        opener = Opener(wire_response(b'80\r\nSECRET remote body',
+                                     [('Transfer-Encoding', 'chunked')]))
+        with self.assertRaises(timer.TimerError) as error:
+            self.client(opener, get_retries=0).cycle()
+        self.assertIn('incomplete response body', str(error.exception))
+        self.assertNotIn('SECRET', str(error.exception))
+        self.assertNotIn('remote body', str(error.exception))
+
+    def test_corrupt_and_truncated_gzip_retry_then_fail_closed(self):
+        compressed = gzip.compress(b'{"workflow_runs": [], "SECRET": "remote body"}')
+        corrupt = compressed[:-8] + bytes([compressed[-8] ^ 1]) + compressed[-7:]
+        for body in (b'', b'SECRET remote body', compressed[:-5], corrupt):
+            with self.subTest(body=body):
+                headers = [('Content-Encoding', 'gzip'), ('Content-Length', str(len(body)))]
+                opener = Opener(*(wire_response(body, headers) for _ in range(3)))
+                waits = []
+                client = timer.GitHubClient(self.config(), 'SECRET', opener=opener,
+                                           wait=lambda seconds: waits.append(seconds) or False)
+                with self.assertRaises(timer.TimerError) as error:
+                    client.cycle()
+                message = str(error.exception)
+                self.assertIn('invalid gzip response', message)
+                self.assertNotIn('invalid JSON', message)
+                self.assertNotIn('SECRET', message)
+                self.assertNotIn('remote body', message)
+                self.assertEqual(waits, [1, 2])
+                self.assertEqual([request.method for request, _ in opener.requests], ['GET'] * 3)
+
+    def test_gzip_failure_can_recover_without_retrying_post(self):
+        headers = [('Content-Encoding', 'gzip')]
+        opener = Opener(wire_response(b'not gzip', headers),
+                        wire_response(gzip.compress(b'{"workflow_runs": []}'), headers),
+                        TimeoutError('SECRET remote error'))
+        with self.assertRaisesRegex(timer.TimerError, 'Not retried'):
+            self.client(opener).cycle()
+        self.assertEqual([request.method for request, _ in opener.requests], ['GET', 'GET', 'POST'])
+
+    def test_unsupported_content_encoding_is_sanitized_and_never_dispatches(self):
+        for encoding in ('br', 'gzip, identity', 'SECRET remote header'):
+            with self.subTest(encoding=encoding):
+                opener = Opener(wire_response(b'{"workflow_runs": []}',
+                                             [('Content-Encoding', encoding)]))
+                with self.assertRaisesRegex(timer.TimerError, 'unsupported content encoding') as error:
+                    self.client(opener).cycle()
+                self.assertNotIn(encoding, str(error.exception))
+                self.assertEqual([request.method for request, _ in opener.requests], ['GET'])
+
+    def test_wire_size_limit_with_and_without_gzip(self):
+        for encoding in ('identity', 'gzip'):
+            with self.subTest(encoding=encoding):
+                body = b' ' * (4 * 1024 * 1024 + 1)
+                opener = Opener(wire_response(body, [('Content-Encoding', encoding)]))
+                with self.assertRaisesRegex(timer.TimerError, 'size limit'):
+                    self.client(opener).cycle()
+                self.assertEqual(len(opener.requests), 1)
+
+    def test_identity_exact_size_boundary_and_large_numeric_length(self):
+        limit = 4 * 1024 * 1024
+        prefix = b'{"workflow_runs": []}'
+        body = prefix + b' ' * (limit - len(prefix))
+        opener = Opener(wire_response(body, [('Content-Length', str(limit))]), Response(204))
+        self.assertEqual(self.client(opener).cycle(), 'dispatched')
+        for length in (str(limit + 1), '9' * 5000):
+            with self.subTest(length_bytes=len(length)):
+                opener = Opener(wire_response(prefix, [('Content-Length', length)]))
+                with self.assertRaisesRegex(timer.TimerError, 'size limit'):
+                    self.client(opener).cycle()
+                self.assertEqual(len(opener.requests), 1)
+
+    def test_gzip_decoded_size_limit_and_exact_boundary(self):
+        limit = 4 * 1024 * 1024
+        for size in (limit, limit + 1, limit * 8):
+            with self.subTest(size=size):
+                prefix = b'{"workflow_runs": []}'
+                compressed = gzip.compress(prefix + b' ' * (size - len(prefix)))
+                opener = Opener(wire_response(compressed, [('Content-Encoding', 'gzip')]), Response(204))
+                if size == limit:
+                    self.assertEqual(self.client(opener).cycle(), 'dispatched')
+                else:
+                    with self.assertRaisesRegex(timer.TimerError, 'size limit'):
+                        self.client(opener).cycle()
+                    self.assertEqual(len(opener.requests), 1)
+
     def test_config_validation(self):
         for kwargs in ({'repo': '../bad'}, {'repo': 'a/b/c'}, {'repo': 'a/b?x'},
                        {'ref': '-bad'}, {'ref': 'a..b'}, {'ref': 'a\nb'}, {'ref': 'a.lock'},
