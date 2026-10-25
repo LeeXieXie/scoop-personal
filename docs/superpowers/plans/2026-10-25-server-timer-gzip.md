@@ -46,10 +46,29 @@ Files: `.github/workflows/publish-server-image.yml`,
 - [x] Obtain an independent security/correctness review of the bounded decoder,
   tests, workflow versioning, and credential handling; resolve actionable defects.
 - [x] Run all Python tests, focused lint, syntax checks, and `git diff --check`.
-- [ ] Commit using Lore intent and verification trailers, integrate any upstream
+- [x] Commit using Lore intent and verification trailers, integrate any upstream
   automatic manifest updates without reverting them, and push to master.
-- [ ] Wait for Publish Server Image and Server Timer to finish successfully for
+- [x] Wait for Publish Server Image and Server Timer to finish successfully for
   the pushed source revision. Verify both platform manifests and image labels.
-- [ ] Pull the versioned image on the affected server and run isolated read-only
+- [x] Pull the versioned image on the affected server and run isolated read-only
   `--check` requests using the existing runtime token without exposing it or
   starting a second scheduler. Report the image digest and verification boundary.
+
+## Completion Evidence (2026-10-25)
+
+- Source revision: `ab7ab54c1ad3d0337162dccc5bf89b65332745c9`.
+- [Publish Server Image](https://github.com/LeeXieXie/scoop-personal/actions/runs/40195785206)
+  passed, including anonymous pulls and 48 offline tests against each published
+  Linux amd64 and arm64 image.
+- [Server Timer](https://github.com/LeeXieXie/scoop-personal/actions/runs/40195785301)
+  passed. The full local Python suite passed 60 tests; focused lint, syntax,
+  Compose validation, and independent review also passed.
+- Published `1.0.2` / `latest` manifest digest:
+  `sha256:b4145e259111a689a633a18c9b850dc08e0fa0ed5f5110d42696057d424203c6`.
+- The affected server pulled the published image and verified its version and
+  source-revision labels. Two isolated read-only `--check` runs returned
+  `checked` with exit code 0, in 8.48 and 9.3 seconds.
+- These checks did not POST or start an additional scheduler loop, and do not
+  prove two natural timer cycles. A recreation of the existing server container
+  observed at 21:06 China Standard Time (UTC+08:00) was external to this work,
+  not a deployment performed by the release validation.

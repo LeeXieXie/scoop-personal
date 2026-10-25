@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/LeeXieXie/scoop-personal/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/LeeXieXie/scoop-personal/actions/workflows/ci.yml) [![Excavator](https://github.com/LeeXieXie/scoop-personal/actions/workflows/excavator.yml/badge.svg?branch=master)](https://github.com/LeeXieXie/scoop-personal/actions/workflows/excavator.yml)
 
-这是用于维护仓库所有者关注的 Windows 应用的个人 [Scoop](https://scoop.sh) 软件桶，不是 [Extras](https://github.com/ScoopInstaller/Extras) 的 fork 或镜像。**当前已收录 `magpie-ai`、`magpie-ai-cli`、`opencode2`、`openchamber`、`zcode`、`smartsearch`、`jcode`、`jcode-desktop`、`pebrel` 和 `deepseek-harness`，共 10 个软件包。**
+这是用于维护仓库所有者关注的 Windows 应用的个人 [Scoop](https://scoop.sh) 软件桶，不是 [Extras](https://github.com/ScoopInstaller/Extras) 的 fork 或镜像。**当前已收录 `magpie-ai`、`magpie-ai-cli`、`opencode2`、`openchamber`、`zcode`、`smartsearch`、`jcode`、`jcode-desktop`、`pebrel`、`deepseek-harness` 和 `thinkrail`，共 11 个软件包。**
 
 ## 使用
 
@@ -69,6 +69,16 @@ scoop install personal/pebrel
 scoop update pebrel
 ```
 
+ThinkRail 浏览器工作台（Windows x64，独立 CLI）：
+
+```powershell
+scoop install personal/thinkrail
+thinkrail
+scoop update thinkrail
+```
+
+`thinkrail` 命令在浏览器中打开工作台；此包不安装原生桌面版，模型提供商认证需另行配置。
+
 ## 已收录应用
 
 [`magpie-ai`](bucket/magpie-ai.json)：[Magpie 官方主页](https://usemagpie.ai) · [官方发布仓库](https://github.com/yetone/magpie-releases)。支持 Windows x64 和 ARM64；首次收录版本为 `0.1.1104`，当前版本以清单为准。
@@ -131,6 +141,10 @@ scoop install personal/deepseek-harness
 
 这是非官方未签名构建，包含上游 RC 代码，可能触发 SmartScreen。构建对 unsigned 模式进行两处精确配置适配，不嵌入官方强制升级策略和自动更新 feed，由 Scoop 更新；不修改认证、沙箱或运行时完整性验证。Release 附带 `SHA256SUMS`、`build-source.json` 与许可文件。配置保留在上游默认用户目录，不迁移或删除现有数据，勿与共享配置的官方版同时运行。上游完整打包烟测与独立 Windows 进程启动通过，但未测试账户登录、模型会话及完整 GUI 交互；启动时有非致命 mandatory-status IPC 警告，详见 Release 说明。包参与全部上游监听，社区构建仓库自动检测 `deepseek-ai/deepseek-harness` 的 `master` 新提交，解析该提交的版本与 pnpm 配置，只有通过打包、完整性和烟测后才发布新社区 Release。每个产物仍记录确切提交以便追溯，不代表永久锁定同一提交。GitHub 定时检查最短为 5 分钟，可能延迟；Scoop 端由服务器每 3 分钟检查已完成发布的社区包。补丁不兼容或构建失败时停止发布，不生成虚假更新。
 
+[`thinkrail`](bucket/thinkrail.json)：[JetBrains 官方项目与发布页](https://github.com/JetBrains/thinkrail)。首次收录版本为 `0.2.0`，当前版本以清单为准；采用 Apache-2.0 许可证，仅收录官方 Windows x64 独立 CLI，运行后在浏览器打开 AI 编程工作台，不是原生桌面安装器。直接下载官方 EXE，保留 `thinkrail-windows-x64.exe` 文件名并创建 `thinkrail` 命令，不运行上游安装器。
+
+配置沿用上游默认 `~/.thinkrail`，清单不迁移或删除已有数据，模型提供商认证需另行配置。使用 `scoop update thinkrail` / `scoop uninstall thinkrail` 管理更新和卸载，不使用上游自更新或卸载命令。版本检测跟踪 GitHub 最新稳定版，不混入单独发布的 nightly；自动更新从同一 Release 的 `SHA256SUMS` 读取 SHA-256，参与全包 Upstream Watch 和每 30 分钟一次的 Excavator 兜底。
+
 ## 维护与添加应用
 
 维护者工作副本应为 `https://github.com/LeeXieXie/scoop-personal.git` 的克隆，使用默认分支 `master`。以下本地命令均在该副本的仓库根目录运行。
@@ -138,7 +152,7 @@ scoop install personal/deepseek-harness
 1. 将 `bucket/app-name.json.template` 复制为 `bucket/<app-name>.json`；应用名使用小写字母、数字和连字符。
 2. 根据官方资料填写 `version`、`description`、`homepage`、`license`，为实际支持的架构填写下载 URL 和真实校验值（`hash`），删除不适用的字段。`hash` 默认按 SHA256 解析，其他算法需显式加前缀，例如 `sha512:<hex>`；上游清单已用 SHA-512/MD5 时照抄其算法即可。
 3. 依据真实的官方发布源配置 `checkver` 和 `autoupdate`；不能假设任意应用都能自动更新。需要保留的用户数据使用 `persist`，按需配置 `shortcuts`。
-4. 执行本地检查，审核清单变更与安装脚本后，再提交到 `master`。
+4. 同步本文的软件包列表、数量及安装/更新说明，执行本地检查，审核清单变更与安装脚本后，再提交到 `master`。
 
 已下载到本地的文件可这样计算校验值（文件名仅为示例）：
 
@@ -179,14 +193,15 @@ python scripts/upstream_watch.py
 
 ## 自动更新
 
-- Upstream Watch 配置为按 UTC cron `2-57/5 * * * *` 每 5 分钟在 Linux runner 上检查 `bucket/*.json` 中的全部软件包，目前共 10 个，不再只检查 Magpie。检测规则来自各清单的 `checkver` 和 `autoupdate`，不另存一份版本号；GitHub 包按各自发布源检查，`opencode2` 查询 npm，`jcode-desktop` 保留 Atom 首条发布含测试版的规则，`zcode` 从构建 provenance 生成带 UTC 时间戳的版本。
-- Excavator 按 UTC cron `17,47 * * * *` 配置为每 30 分钟运行一次（北京时间每小时第 17、47 分），避开整点高峰；也可在 Actions 中通过 `workflow_dispatch` 手动运行，手动运行请选择 `master` 分支。`opencode2`、`openchamber`、`zcode`、`smartsearch`、`jcode`、`jcode-desktop`、`pebrel` 与 `deepseek-harness` 均由这个定时任务检查各自发布源的新版本；`deepseek-harness` 跟踪已发布的社区构建，不会自动跟随上游源码重建二进制。
+- Upstream Watch 配置为按 UTC cron `2-57/5 * * * *` 每 5 分钟在 Linux runner 上检查 `bucket/*.json` 中的全部软件包，目前共 11 个，不再只检查 Magpie。检测规则来自各清单的 `checkver` 和 `autoupdate`，不另存一份版本号；GitHub 包按各自发布源检查，`opencode2` 查询 npm，`jcode-desktop` 保留 Atom 首条发布含测试版的规则，`zcode` 从构建 provenance 生成带 UTC 时间戳的版本。
+- Excavator 按 UTC cron `17,47 * * * *` 配置为每 30 分钟运行一次（北京时间每小时第 17、47 分），避开整点高峰；也可在 Actions 中通过 `workflow_dispatch` 手动运行，手动运行请选择 `master` 分支。`opencode2`、`openchamber`、`zcode`、`smartsearch`、`jcode`、`jcode-desktop`、`pebrel`、`deepseek-harness` 与 `thinkrail` 均由这个定时任务检查各自发布源的新版本；`deepseek-harness` 跟踪已发布的社区构建，不会自动跟随上游源码重建二进制。
 - 监听仅在上游版本更新且清单要求的各架构下载包、校验文件等产物就绪时派发；Magpie 继续要求 GUI、CLI 两个架构共四份 EXE 与 `SHA256SUMS` 全部上传完成。监听只检查发布元数据，不代替 Excavator 的实际下载和哈希校验。单包检测失败不阻止其他包继续检查，有就绪更新仍可派发，但失败会记录并令监听任务报错；未知规则也会显式报错，不能静默漏包。新增清单使用监听器尚不支持的 `checkver` 时需补适配，ZCode 的特殊脚本规则变动需同步审核适配快照。
 - 全部包均参与上游监听，不再将非 Magpie 软件限制为仅靠半小时定时检查。监听会逐包报告当前版本、上游版本与检测结果；无新版本时不启动 Excavator。检查时发现 Excavator 已在运行/排队则跳过；检查与触发之间若恰逢其他入口启动 Excavator，仍可能重复排队，已有并发锁保证串行执行。
 - GitHub 定时任务可能排队、延迟或丢弃，实际运行间隔及更新完成时间可能长于上面设定的 cron 周期；30 分钟和 5 分钟均为计划检查频率，不保证准点触发或在该时间内完成更新。上游发布后即时触发需要上游工作流或 webhook 主动向本仓库派发事件，仅在本仓库添加 `release` 触发器无法监听其他仓库的发布。
 - 真实清单须同时正确配置 `checkver` 与 `autoupdate` 才能参与自动更新。工作流检查新版本、下载文件并计算及检查哈希，将清单更新提交到 `master`。
 - `magpie-ai` 与 `magpie-ai-cli` 均通过 Upstream Watch 和 Excavator 跟踪官方最新稳定版，使用官方发布的 `SHA256SUMS` 获取校验值，不依赖 Main/Extras 清单的更新时间。工作流只更新桶内清单，不会自动更新用户本地已安装的应用；本地更新仍需执行 `scoop update`。
 - `pebrel` 同时参与 Upstream Watch 与定时 Excavator，使用官方便携 ZIP 和 `SHA256SUMS`。
+- `thinkrail` 同时参与 Upstream Watch 与定时 Excavator，跟踪官方最新稳定版及其 Windows x64 EXE，从同一 Release 的 `SHA256SUMS` 读取 SHA-256；新增此清单不需要重新构建服务器计时器镜像。
 - `opencode2` 与 `openchamber` 同时参与 Upstream Watch 与定时 Excavator：监听发现新版本后派发更新，Excavator 再按各自 `checkver` / `autoupdate` 重写 URL、按 `hash.url` 抓取校验值。前者从 npm registry 的 `dist.integrity` 取 SHA-512，后者从官方 `latest.yml` / `latest-arm64.yml` 取 SHA-512。监听不替代实际下载和哈希校验，上游发布不完整时仍可能失败，必要时人工修正。
 - `smartsearch` 与 `jcode` 同时参与 Upstream Watch，并沿用每 30 分钟一次的 Excavator 兜底，分别从官方 Release 的 `SHA256SUMS.txt` / `SHA256SUMS` 读取 SHA256。Smart Search 使用完整 nupkg，Jcode 使用各架构 tar.gz；若任一架构产物未齐或校验失败，不应将其当作可安装的新版本。
 - Upstream Watch 使用标准 `GITHUB_TOKEN` 的 `contents: read` 和 `actions: write` 权限调用已有 `workflow_dispatch`，无需额外配置 PAT；可手动在 `master` 分支运行监听任务。
@@ -200,7 +215,9 @@ python scripts/upstream_watch.py
 
 服务器版使用 Python 标准库直接调用 GitHub API，默认每 **3 分钟（180 秒）**唤醒现有全包监听，可用 `--interval 300` 调整为 **5 分钟**；不依赖 Windows 开机或 `gh` 登录，也不开放入站端口。提供 Docker Compose 常驻进程及 Linux systemd timer 两种部署方式，包含超时、有限重试、队列防重与结构化日志。
 
-程序入口为 [`scripts/server_upstream_timer.py`](scripts/server_upstream_timer.py)。**宝塔用户直接看 [中文部署步骤](deploy/server-timer/BAOTA.md)，将 [宝塔编排文件](deploy/server-timer/compose.baota.yml) 粘贴到 Docker → 容器编排，在 `environment` 填入 GitHub Token 后部署即可。编排使用滚动镜像 `ghcr.io/leexiexie/scoop-upstream-timer:latest`，同时保留 `1.0.1` 版本标签，发布流程自动验证匿名拉取、来源提交和 180 秒默认间隔。升级需要拉取并重建容器，无需下载脚本、创建挂载文件、创建 `.env` 或自行构建镜像。环境变量对宝塔/Docker 管理员及 `docker inspect` 可见，不要截图或提交真实 Token。** 其他安装方式、凭据权限、运行检查及卸载步骤见 [`deploy/server-timer/README.md`](deploy/server-timer/README.md)。凭据只放在服务器环境或私有文件，不提交到仓库。部署文件交付不等于已安装到服务器；服务器上观察两次自然成功运行后，再禁用下面的 Windows 任务，避免多个独立计时器重复唤醒。
+程序入口为 [`scripts/server_upstream_timer.py`](scripts/server_upstream_timer.py)。**宝塔用户直接看 [中文部署步骤](deploy/server-timer/BAOTA.md)，将 [宝塔编排文件](deploy/server-timer/compose.baota.yml) 粘贴到 Docker → 容器编排，在 `environment` 填入 GitHub Token 后部署即可。编排使用滚动镜像 `ghcr.io/leexiexie/scoop-upstream-timer:latest`，也可使用 `ghcr.io/leexiexie/scoop-upstream-timer:1.0.2` 固定本次传输修复版；旧 `1.0.0` / `1.0.1` 标签仍保留。发布流程验证匿名拉取、来源提交、180 秒默认间隔，以及 Linux amd64 / arm64 两种镜像的回归测试。升级需要拉取并重建容器，仅重启旧容器不会更新镜像；无需下载脚本、创建挂载文件、创建 `.env` 或自行构建镜像。环境变量对宝塔/Docker 管理员及 `docker inspect` 可见，不要截图或提交真实 Token。** 其他安装方式、凭据权限、运行检查及卸载步骤见 [`deploy/server-timer/README.md`](deploy/server-timer/README.md)。凭据只放在服务器环境或私有文件，不提交到仓库。部署文件交付不等于已安装到服务器；服务器上观察两次自然成功运行后，再禁用下面的 Windows 任务，避免多个独立计时器重复唤醒。
+
+`1.0.2` 为 GET 请求启用 gzip，分别将接收和解压后的数据限制在 4 MiB，解析前识别响应截断或损坏的 gzip，避免把已知的传输截断混报为 `invalid JSON`。临时失败沿用有界 GET 重试，持续失败则不派发；最近 100 次队列检查、180 秒默认间隔与 POST 不自动重试的策略保持不变。修复和镜像发布验证见 [Publish Server Image](https://github.com/LeeXieXie/scoop-personal/actions/runs/40195785206)，不代表网络故障已被永久消除或所有更新任务均成功。
 
 ## 独立定时触发（Windows 维护者工作站）
 
