@@ -1,0 +1,37 @@
+{
+    "version": "0.2.0",
+    "description": "Self-contained ThinkRail CLI that launches an AI coding workbench in your browser.",
+    "homepage": "https://github.com/JetBrains/thinkrail",
+    "license": "Apache-2.0",
+    "notes": [
+        "Packages the standalone browser-launching CLI, not the native desktop installer. Run 'thinkrail' to open the workbench.",
+        "Tracks stable releases; upstream also publishes separate nightly builds.",
+        "Use 'scoop update thinkrail' and 'scoop uninstall thinkrail', not the upstream update/uninstall commands. The original release filename is preserved outside the upstream self-update layout.",
+        "User data remains in the upstream default ~/.thinkrail directory. Existing data is not moved or deleted; model provider authentication is configured separately."
+    ],
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/JetBrains/thinkrail/releases/download/v0.2.0/thinkrail-windows-x64.exe",
+            "hash": "e82521939e728557e2afe2dfb0d3928db8f0b60002a42a112ff123ba17713bec"
+        }
+    },
+    "bin": [
+        [
+            "thinkrail-windows-x64.exe",
+            "thinkrail"
+        ]
+    ],
+    "checkver": {
+        "github": "https://github.com/JetBrains/thinkrail"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/JetBrains/thinkrail/releases/download/v$version/thinkrail-windows-x64.exe"
+            }
+        },
+        "hash": {
+            "url": "$baseurl/SHA256SUMS"
+        }
+    }
+}
