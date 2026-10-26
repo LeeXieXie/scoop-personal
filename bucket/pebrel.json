@@ -1,16 +1,16 @@
 {
-    "version": "2.2.2",
+    "version": "2.3.0",
     "description": "GPU-accelerated terminal, SSH workspace, and home for AI CLI sessions.",
     "homepage": "https://github.com/Kuddev/pebrel",
     "license": "GPL-3.0-only",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/Kuddev/pebrel/releases/download/v2.2.2/Pebrel-v2.2.2-windows-x64.zip",
-            "hash": "78ce7464b73b63ae2b8f6629bf7774dd2fe4738f4d2bb6c7f4cbb44aba4e79f5"
+            "url": "https://github.com/Kuddev/pebrel/releases/download/v2.3.0/Pebrel-v2.3.0-windows-x64.zip",
+            "hash": "99f35706415b9f087c1f7d8a1b0c5eabc47b29da6a501a1182c062e2e944b2a5"
         },
         "arm64": {
-            "url": "https://github.com/Kuddev/pebrel/releases/download/v2.2.2/Pebrel-v2.2.2-windows-arm64.zip",
-            "hash": "2cb8987325a99f0adecf112daa9b32f37a51fe2e2416173ea04be256d77946aa"
+            "url": "https://github.com/Kuddev/pebrel/releases/download/v2.3.0/Pebrel-v2.3.0-windows-arm64.zip",
+            "hash": "addd3511ac6df353f84cbeffc0e888bf6524d4f4e132fb378d10b6a884ca1686"
         }
     },
     "bin": "pebrel.exe",
