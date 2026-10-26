@@ -1,5 +1,5 @@
 {
-    "version": "0.1.1601",
+    "version": "0.1.1602",
     "description": "Unified model, provider, and gateway manager for AI coding agents.",
     "homepage": "https://usemagpie.ai",
     "license": "MIT",
@@ -10,12 +10,12 @@
     ],
     "architecture": {
         "64bit": {
-            "url": "https://github.com/yetone/magpie-releases/releases/download/v0.1.1601/magpie-windows-amd64.exe#/magpie.exe",
-            "hash": "23785fab32a840e78f116895a12cf67e09bad271f3e1519beddb3f7f30f75b5d"
+            "url": "https://github.com/yetone/magpie-releases/releases/download/v0.1.1602/magpie-windows-amd64.exe#/magpie.exe",
+            "hash": "57cd65bb639f5e3757006f0f5f416746a54a856d3185fb9b9e1dd941a5153aa7"
         },
         "arm64": {
-            "url": "https://github.com/yetone/magpie-releases/releases/download/v0.1.1601/magpie-windows-arm64.exe#/magpie.exe",
-            "hash": "2663a0f5ad2260907ec795ad115e18efff212e2d8a7fb0272fa4b4e8d279b109"
+            "url": "https://github.com/yetone/magpie-releases/releases/download/v0.1.1602/magpie-windows-arm64.exe#/magpie.exe",
+            "hash": "d613bcfb60b0a0c475983748dc9e263c340b316eb692298aada6930d89396522"
         }
     },
     "pre_install": [
