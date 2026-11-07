@@ -1,16 +1,16 @@
 {
-    "version": "0.1.3242",
+    "version": "0.1.3244",
     "description": "Unified model, provider, and gateway manager for AI coding agents (CLI version).",
     "homepage": "https://usemagpie.ai",
     "license": "MIT",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/yetone/magpie-releases/releases/download/v0.1.3242/magpie-cli-windows-amd64.exe#/magpie-cli.exe",
-            "hash": "52ee3e447c1c22a968241feaa35d5303746066b4220e1d36bd28bcd5136865f0"
+            "url": "https://github.com/yetone/magpie-releases/releases/download/v0.1.3244/magpie-cli-windows-amd64.exe#/magpie-cli.exe",
+            "hash": "a41bd7a121737f1c061e0446f8455ad422498012c03bdf5e84f25129ce582198"
         },
         "arm64": {
-            "url": "https://github.com/yetone/magpie-releases/releases/download/v0.1.3242/magpie-cli-windows-arm64.exe#/magpie-cli.exe",
-            "hash": "c86372f2e06b7068f83b38975e1be4b60f3f261f4880989bb2a98bc3c215296e"
+            "url": "https://github.com/yetone/magpie-releases/releases/download/v0.1.3244/magpie-cli-windows-arm64.exe#/magpie-cli.exe",
+            "hash": "e84efd4f7a7bc2d0037cea7c59d30f7fe65e2c2736d4fb8b8e9af300a80fc0c7"
         }
     },
     "bin": "magpie-cli.exe",
