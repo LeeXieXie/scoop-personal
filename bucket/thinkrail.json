@@ -1,5 +1,5 @@
 {
-    "version": "0.3.2",
+    "version": "0.4.0",
     "description": "Self-contained ThinkRail CLI that launches an AI coding workbench in your browser.",
     "homepage": "https://github.com/JetBrains/thinkrail",
     "license": "Apache-2.0",
@@ -11,8 +11,8 @@
     ],
     "architecture": {
         "64bit": {
-            "url": "https://github.com/JetBrains/thinkrail/releases/download/v0.3.2/thinkrail-windows-x64.exe",
-            "hash": "38f6ded0f6a311c7f4df4781de0a86b0604c1d76101d38d428e8b3d35aeeed40"
+            "url": "https://github.com/JetBrains/thinkrail/releases/download/v0.4.0/thinkrail-windows-x64.exe",
+            "hash": "e24816a4663a1e9c78b554ec7719fffed63a4319f8d6aa4edb00ae6835dd1565"
         }
     },
     "bin": [
