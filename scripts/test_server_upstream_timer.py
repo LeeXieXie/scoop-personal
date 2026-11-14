@@ -4,6 +4,7 @@ import http.client
 import io
 import json
 import os
+from datetime import datetime, timedelta, timezone
 import tempfile
 import threading
 import unittest
@@ -289,6 +290,150 @@ class TimerTests(unittest.TestCase):
     def test_completed_allows_dispatch(self):
         opener = Opener(Response(data={'workflow_runs': [{'status': 'completed'}]}), Response(204))
         self.assertEqual(self.client(opener).cycle(), 'dispatched')
+
+    def test_old_empty_queue_no_longer_blocks_dispatch(self):
+        run = {'id': 42, 'status': 'queued', 'created_at': '2000-01-01T00:00:00Z'}
+        opener = Opener(Response(data={'workflow_runs': [run]}), Response(data=run),
+                        Response(data={'total_count': 0, 'jobs': []}), Response(204))
+        client = self.client(opener)
+        self.assertEqual(client.cycle(), 'dispatched')
+        self.assertEqual([r.method for r, _ in opener.requests], ['GET', 'GET', 'GET', 'POST'])
+        self.assertTrue(opener.requests[1][0].full_url.endswith('/actions/runs/42'))
+        self.assertTrue(opener.requests[2][0].full_url.endswith('/actions/runs/42/jobs?per_page=1'))
+        self.assertEqual(client.queue_details['ignored_stale_runs'][0]['run_id'], 42)
+
+    def test_stale_queue_recovery_boundary_and_disable(self):
+        now = datetime(2026, 11, 15, tzinfo=timezone.utc)
+        for age, threshold, recover in ((1799, 1800, False), (1800, 1800, True),
+                                        (1801, 1800, True), (9999, 0, False),
+                                        (1801, 3600, False), (-1, 1800, False)):
+            with self.subTest(age=age, threshold=threshold):
+                run = {'id': 42, 'status': 'queued',
+                       'created_at': (now - timedelta(seconds=age)).isoformat()}
+                opener = Opener(Response(data={'workflow_runs': [run]}), Response(data=run),
+                                Response(data={'total_count': 0, 'jobs': []}), Response(204))
+                with patch.object(timer, 'datetime', wraps=datetime) as clock:
+                    clock.now.return_value = now
+                    outcome = self.client(opener, stale_queued_seconds=threshold).cycle()
+                self.assertEqual(outcome, 'dispatched' if recover else 'busy')
+                self.assertEqual(len(opener.requests), 4 if recover else 1)
+
+    def test_stale_queue_rechecks_changed_detail_status(self):
+        run = {'id': 42, 'status': 'queued', 'created_at': '2000-01-01T00:00:00Z'}
+        for status in ('completed', 'in_progress', 'waiting', 'pending', 'unknown'):
+            with self.subTest(status=status):
+                detail = {**run, 'status': status}
+                opener = Opener(Response(data={'workflow_runs': [run]}), Response(data=detail),
+                                Response(204))
+                self.assertEqual(self.client(opener).cycle(),
+                                 'dispatched' if status == 'completed' else 'busy')
+                self.assertEqual(len(opener.requests), 3 if status == 'completed' else 2)
+
+    def test_stale_queue_with_jobs_or_active_run_still_blocks(self):
+        run = {'id': 42, 'status': 'queued', 'created_at': '2000-01-01T00:00:00Z'}
+        opener = Opener(Response(data={'workflow_runs': [run]}), Response(data=run),
+                        Response(data={'total_count': 1, 'jobs': [{'status': 'in_progress'}]}))
+        self.assertEqual(self.client(opener).cycle(), 'busy')
+        self.assertTrue(all(r.method == 'GET' for r, _ in opener.requests))
+        opener = Opener(Response(data={'workflow_runs': [run, {'status': 'in_progress'}]}),
+                        Response(data=run), Response(data={'total_count': 0, 'jobs': []}))
+        self.assertEqual(self.client(opener).cycle(), 'busy')
+        self.assertTrue(all(r.method == 'GET' for r, _ in opener.requests))
+
+    def test_stale_queue_invalid_candidate_metadata_remains_blocking(self):
+        run = {'id': 42, 'status': 'queued', 'created_at': '2000-01-01T00:00:00Z'}
+        candidates = [{**run, 'id': value} for value in (None, True, 0, -1, '42', 4.2)]
+        candidates += [{**run, 'created_at': value} for value in
+                       (None, '', 'SECRET', '2000-01-01T00:00:00', '9999-01-01T00:00:00Z', 1)]
+        for candidate in candidates:
+            with self.subTest(candidate=candidate):
+                opener = Opener(Response(data={'workflow_runs': [candidate]}))
+                self.assertEqual(self.client(opener).cycle(), 'busy')
+                self.assertEqual(len(opener.requests), 1)
+
+    def test_stale_queue_detail_age_is_revalidated(self):
+        run = {'id': 42, 'status': 'queued', 'created_at': '2000-01-01T00:00:00Z'}
+        for value in (None, 'SECRET', '9999-01-01T00:00:00Z', datetime.now(timezone.utc).isoformat()):
+            with self.subTest(value=value):
+                opener = Opener(Response(data={'workflow_runs': [run]}),
+                                Response(data={**run, 'created_at': value}))
+                self.assertEqual(self.client(opener).cycle(), 'busy')
+                self.assertEqual(len(opener.requests), 2)
+
+    def test_stale_queue_invalid_api_shapes_fail_closed(self):
+        run = {'id': 42, 'status': 'queued', 'created_at': '2000-01-01T00:00:00Z'}
+        for detail in (None, [], {}, {**run, 'id': 43}, {**run, 'status': None}):
+            with self.subTest(detail=detail), self.assertRaises(timer.TimerError):
+                self.client(Opener(Response(data={'workflow_runs': [run]}), Response(data=detail))).cycle()
+        for jobs in (None, {}, {'total_count': True, 'jobs': []},
+                     {'total_count': -1, 'jobs': []}, {'total_count': 0, 'jobs': None}):
+            opener = Opener(Response(data={'workflow_runs': [run]}), Response(data=run), Response(data=jobs))
+            with self.subTest(jobs=jobs), self.assertRaises(timer.TimerError):
+                self.client(opener).cycle()
+            self.assertTrue(all(r.method == 'GET' for r, _ in opener.requests))
+
+    def test_stale_queue_api_failures_and_dispatch_nonretry(self):
+        run = {'id': 42, 'status': 'queued', 'created_at': '2000-01-01T00:00:00Z'}
+        for failure_at in ('detail', 'jobs'):
+            results = [Response(data={'workflow_runs': [run]})]
+            if failure_at == 'jobs':
+                results.append(Response(data=run))
+            results.append(http_error(403))
+            opener = Opener(*results)
+            with self.subTest(failure_at=failure_at), self.assertRaises(timer.TimerError):
+                self.client(opener).cycle()
+            self.assertTrue(all(r.method == 'GET' for r, _ in opener.requests))
+        opener = Opener(Response(data={'workflow_runs': [run]}), Response(data=run),
+                        Response(data={'total_count': 0, 'jobs': []}), http_error(503))
+        with self.assertRaises(timer.TimerError):
+            self.client(opener).cycle()
+        self.assertEqual(sum(r.method == 'POST' for r, _ in opener.requests), 1)
+
+    def test_stale_queue_check_remains_read_only_and_logs_safe_metadata(self):
+        run = {'id': 42, 'status': 'queued', 'created_at': '2000-01-01T00:00:00Z',
+               'html_url': 'SECRET', 'name': 'SECRET'}
+        opener = Opener(Response(data={}), Response(data={'workflow_runs': [run]}),
+                        Response(data=run), Response(data={'total_count': 0, 'jobs': []}))
+        output = io.StringIO()
+        self.assertEqual(timer.main(['--check'], environ={'GH_TOKEN': 'SECRET'}, opener=opener,
+                                    output=output), 0)
+        logs = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertEqual(logs[0]['stale_queued_seconds'], 1800)
+        self.assertEqual(logs[-1]['event'], 'checked')
+        self.assertEqual(logs[-1]['ignored_stale_runs'][0]['run_id'], 42)
+        self.assertNotIn('SECRET', output.getvalue())
+        self.assertTrue(all(r.method == 'GET' for r, _ in opener.requests))
+
+    def test_busy_metadata_is_bounded_and_sanitized_and_resets(self):
+        runs = [{'id': i + 1, 'status': 'SECRET', 'created_at': 'SECRET'} for i in range(100)]
+        opener = Opener(Response(data={'workflow_runs': runs}), Response(data={'workflow_runs': []}),
+                        Response(204))
+        client = self.client(opener)
+        self.assertEqual(client.cycle(), 'busy')
+        self.assertEqual(client.queue_details['blocking_run_count'], 100)
+        self.assertLessEqual(len(client.queue_details['blocking_runs']), 5)
+        self.assertNotIn('SECRET', json.dumps(client.queue_details))
+        self.assertEqual(client.cycle(), 'dispatched')
+        self.assertEqual(client.queue_details, {})
+
+    def test_stop_during_stale_recheck_prevents_further_requests(self):
+        run = {'id': 42, 'status': 'queued', 'created_at': '2000-01-01T00:00:00Z'}
+        event = threading.Event()
+        response = Response(data=run)
+        original_read = response.read
+        def read(*args):
+            event.set()
+            return original_read(*args)
+        response.read = read
+        opener = Opener(Response(data={'workflow_runs': [run]}), response)
+        client = timer.GitHubClient(self.config(), 'SECRET', opener=opener, stop_event=event)
+        self.assertEqual(client.cycle(), 'stopped')
+        self.assertEqual(len(opener.requests), 2)
+
+    def test_stale_queue_threshold_validation(self):
+        for value in (-1, float('nan'), float('inf')):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                self.config(stale_queued_seconds=value)
     def test_check_reads_permissions_and_queue_without_post(self):
         opener = Opener(Response(data={'permissions': {'push': True}}),
                         Response(data={'workflow_runs': []}))

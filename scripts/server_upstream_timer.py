@@ -2,7 +2,8 @@
 """Server-side workflow_dispatch timer, Python 3.11+ standard library only.
 
 Queue inspection covers the latest 100 runs, best-effort only, NOT a distributed
-lock. Concurrent timers can race. --check performs read-only checks and cannot
+lock. Old queued runs are rechecked and ignored only if completed or empty.
+Concurrent timers can race. --check performs read-only checks and cannot
 prove Actions write permission. An uncertain POST is never automatically retried.
 """
 import argparse
@@ -86,6 +87,7 @@ class Config:
     interval: float = 180
     timeout: float = 30
     get_retries: int = 2
+    stale_queued_seconds: float = 1800
 
     def __post_init__(self):
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9][A-Za-z0-9_.-]*', self.repo):
@@ -102,6 +104,8 @@ class Config:
                 raise ValueError('interval and timeout must be positive finite numbers')
         if not isinstance(self.get_retries, int) or not 0 <= self.get_retries <= 10:
             raise ValueError('get-retries must be an integer between 0 and 10')
+        if not math.isfinite(self.stale_queued_seconds) or self.stale_queued_seconds < 0:
+            raise ValueError('stale-queued-seconds must be a nonnegative finite number')
 
 
 def load_token(environ):
@@ -137,6 +141,7 @@ class GitHubClient:
         self.wait = wait if wait is not None else self.stop_event.wait
         self.repo_path = '/repos/' + config.repo
         self.workflow_path = self.repo_path + '/actions/workflows/' + quote(config.workflow, safe='')
+        self.queue_details = {}
 
     def request(self, method, path, payload=None):
         # Paths are constructed internally only. There is deliberately no base URL option.
@@ -199,7 +204,46 @@ class GitHubClient:
             return f'{method} HTTP {status}: redirect refused'
         return f'{method} HTTP {status}'
 
+    @staticmethod
+    def run_id(run):
+        value = run.get('id')
+        return value if type(value) is int and value > 0 else None
+
+    @staticmethod
+    def run_age(run):
+        value = run.get('created_at')
+        if not isinstance(value, str):
+            return None
+        try:
+            created = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            if created.utcoffset() is None:
+                return None
+            age = (datetime.now(timezone.utc) - created).total_seconds()
+        except (ValueError, OverflowError):
+            return None
+        return age if age >= 0 else None
+
+    def run_metadata(self, run):
+        # Only locally selected numeric fields and allowlisted strings reach logs.
+        status = run['status']
+        metadata = {'status': status if status in (
+            'queued', 'in_progress', 'completed', 'waiting', 'requested', 'pending') else 'unknown'}
+        run_id = self.run_id(run)
+        if run_id is not None:
+            metadata['run_id'] = run_id
+        age = self.run_age(run)
+        if age is not None:
+            metadata['age_seconds'] = int(age)
+        return metadata
+
+    def stale_queued(self, run):
+        age = self.run_age(run)
+        return (self.config.stale_queued_seconds > 0 and run['status'] == 'queued'
+                and self.run_id(run) is not None and age is not None
+                and age >= self.config.stale_queued_seconds)
+
     def cycle(self, check=False):
+        self.queue_details = {}
         if check:
             repository = self.request('GET', self.repo_path)
             if not isinstance(repository, dict):
@@ -210,7 +254,42 @@ class GitHubClient:
         runs = data['workflow_runs']
         if any(not isinstance(run, dict) or not isinstance(run.get('status'), str) for run in runs):
             raise TimerError('invalid workflow run status')
-        busy = any(run['status'] != 'completed' for run in runs)
+        blocking, ignored = [], []
+        for run in runs:
+            if self.stop_event.is_set():
+                return 'stopped'
+            if run['status'] == 'completed':
+                continue
+            reason = None
+            if self.stale_queued(run):
+                path = self.repo_path + '/actions/runs/' + str(self.run_id(run))
+                detail = self.request('GET', path)
+                if (not isinstance(detail, dict) or self.run_id(detail) != self.run_id(run)
+                        or not isinstance(detail.get('status'), str)):
+                    raise TimerError('invalid workflow run detail')
+                run = detail
+                if self.stop_event.is_set():
+                    return 'stopped'
+                if run['status'] == 'completed':
+                    reason = 'completed_on_recheck'
+                elif self.stale_queued(run):
+                    jobs = self.request('GET', path + '/jobs?per_page=1')
+                    if (not isinstance(jobs, dict) or type(jobs.get('total_count')) is not int
+                            or jobs['total_count'] < 0 or not isinstance(jobs.get('jobs'), list)):
+                        raise TimerError('invalid workflow jobs response')
+                    if jobs['total_count'] == 0 and not jobs['jobs']:
+                        reason = 'queued_without_jobs'
+            if reason:
+                ignored.append({**self.run_metadata(run), 'reason': reason})
+            else:
+                blocking.append(self.run_metadata(run))
+        if blocking:
+            self.queue_details.update(blocking_run_count=len(blocking), blocking_runs=blocking[:5])
+        if ignored:
+            self.queue_details.update(ignored_stale_run_count=len(ignored), ignored_stale_runs=ignored[:5])
+        if self.stop_event.is_set():
+            return 'stopped'
+        busy = bool(blocking)
         if check:
             return 'checked_busy' if busy else 'checked'
         if busy:
@@ -236,6 +315,8 @@ def main(argv=None, *, environ=None, opener=None, wait=None, stop_event=None, ou
     parser.add_argument('--interval', type=float, default=180)
     parser.add_argument('--timeout', type=float, default=30)
     parser.add_argument('--get-retries', type=int, default=2)
+    parser.add_argument('--stale-queued-seconds', type=float, default=1800,
+                        help='recheck old queued runs without jobs after this age; 0 disables recovery')
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument('--once', action='store_true')
     modes.add_argument('--check', action='store_true')
@@ -257,13 +338,14 @@ def main(argv=None, *, environ=None, opener=None, wait=None, stop_event=None, ou
         log('started', interval_seconds=config.interval,
             mode='check' if args.check else 'once' if args.once else 'loop',
             schedule='monotonic_fixed_start_skip_missed', timeout_seconds=config.timeout,
-            get_retries=config.get_retries)
+            get_retries=config.get_retries, stale_queued_seconds=config.stale_queued_seconds)
         next_tick = monotonic()
         while not stop.is_set():
             result = 0
             try:
                 outcome = client.cycle(check=args.check)
                 log(outcome, queue_check='best_effort_latest_100_not_a_distributed_lock',
+                    **client.queue_details,
                     **({'write_permission': 'not_verified_read_only_check'} if args.check else {}))
             except TimerError as error:
                 log('cycle_failed', message=str(error))

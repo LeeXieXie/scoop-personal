@@ -1,6 +1,6 @@
 # 宝塔面板部署：每 3–5 分钟触发全包检测
 
-编排使用滚动预构建镜像 `ghcr.io/leexiexie/scoop-upstream-timer:latest`。传输修复版 `1.0.2` 在本仓库 **Publish Server Image** 工作流发布成功后可用，同时更新 `latest`，保留完整源码提交的 `sha-<提交哈希>` 标签，旧 `1.0.0` / `1.0.1` 标签不被本次发布覆盖。目标平台为 Linux amd64 / arm64。每次升级需拉取镜像并重建容器，`latest` 不会自动替换已运行的容器。不需要下载脚本、创建挂载文件、本地构建或创建 `.env`。发布镜像不代表已在你的宝塔服务器安装或升级。
+编排使用滚动预构建镜像 `ghcr.io/leexiexie/scoop-upstream-timer:latest`。排队容错版 `1.0.3` 在本仓库 **Publish Server Image** 工作流发布成功后可用，同时更新 `latest`，保留完整源码提交的 `sha-<提交哈希>` 标签，旧 `1.0.0` / `1.0.1` / `1.0.2` 标签不被本次发布覆盖。目标平台为 Linux amd64 / arm64。每次升级需拉取镜像并重建容器，`latest` 不会自动替换已运行的容器。不需要下载脚本、创建挂载文件、本地构建或创建 `.env`。发布镜像不代表已在你的宝塔服务器安装或升级。
 
 ## 创建编排
 
@@ -29,9 +29,12 @@ command: ["--interval", "180"]
 
 要改成每 5 分钟，将 `180` 改为 `300`。镜像 ENTRYPOINT 已包含 Python 脚本，不要在 command 中重复添加 Python 或脚本路径。修改参数或 Token 后，使用宝塔的**重新部署/重建容器**应用配置，仅重启旧容器不会更新环境变量和启动参数。只保留一个调度器。
 
+默认对排队超过 30 分钟的任务执行复核。需要调整时，在 command 末尾追加
+`"--stale-queued-seconds", "3600"` 可改为 1 小时；设为 `"0"` 则禁用此容错。
+
 ## 从旧版本升级
 
-从 `1.0.0` 或 `1.0.1` 升级时，可把 `image` 改为 `ghcr.io/leexiexie/scoop-upstream-timer:1.0.2` 固定本次修复版，或保留 `ghcr.io/leexiexie/scoop-upstream-timer:latest` 跟随滚动发布。旧编排显式 `command: ["--interval", "300"]` 会覆盖新镜像的默认间隔，需要默认 3 分钟时把 `command` 改为 `["--interval", "180"]`。保留服务器上已有的 Token 环境变量，不需要重新生成 Token。等待新镜像发布成功后，在宝塔强制拉取镜像并重新部署/重建容器，**仅重启旧容器不足以升级镜像、环境变量或参数**。命令行等效操作（在保存编排的目录执行，编排文件名不是默认名称时加 `-f 文件名`）：
+从 `1.0.0`、`1.0.1` 或 `1.0.2` 升级时，可把 `image` 改为 `ghcr.io/leexiexie/scoop-upstream-timer:1.0.3` 固定本次修复版，或保留 `ghcr.io/leexiexie/scoop-upstream-timer:latest` 跟随滚动发布。旧编排显式 `command: ["--interval", "300"]` 会覆盖新镜像的默认间隔，需要默认 3 分钟时把 `command` 改为 `["--interval", "180"]`。保留服务器上已有的 Token 环境变量，不需要重新生成 Token。等待新镜像发布成功后，在宝塔强制拉取镜像并重新部署/重建容器，**仅重启旧容器不足以升级镜像、环境变量或参数**。命令行等效操作（在保存编排的目录执行，编排文件名不是默认名称时加 `-f 文件名`）：
 
 ```sh
 docker compose pull scheduler
@@ -40,7 +43,17 @@ docker compose up -d --force-recreate scheduler
 
 不要将包含真实 Token 的编排复制到聊天或提交到仓库。升级后检查日志中的 `interval_seconds` 为 `180`，并观察两次自然周期。
 
-## 1.0.2 传输修复边界
+## 1.0.3 排队容错与传输边界
+
+最近 100 次运行中，`queued` 超过默认 1800 秒的任务会再次查询单条运行状态。
+如果单条状态已经为 `completed`，不再阻塞；如果仍为超时的 `queued`，再查询
+jobs，只有确认没有任何 job 才忽略这条异常排队记录，并继续正常派发。
+该过程不取消或删除 GitHub 任务。正在执行、已有 job、状态或时间信息不足的任务
+仍会阻止重复触发；复核 API 失败时跳过本轮派发。`--check` 也会复核，但始终只读。
+
+忽略空排队记录只是尽力恢复，不能保证 GitHub 之后不会启动旧任务；保留工作流的
+并发限制，并且只运行一个服务器调度器。需要严格沿用旧检查方式时设置
+`--stale-queued-seconds 0`。
 
 GET 请求协商 gzip 压缩，也兼容未压缩响应；线上接收数据和解压后的 JSON 分别限制为 4 MiB。解析前检测 Content-Length 不完整响应及损坏/截断的 gzip，临时传输或 JSON 解析失败使用有界 GET 重试，持续失败则跳过触发。诊断仅包含安全的数字或白名单元数据，不记录响应正文、Token 或任意远端响应头/错误文本。
 
@@ -51,8 +64,11 @@ GET 请求协商 gzip 压缩，也兼容未压缩响应；线上接收数据和�
 在宝塔查看 `scoop-upstream-timer` 容器日志：
 
 - `interval_seconds`：默认应为 `180`，选择 5 分钟时为 `300`。
+- `stale_queued_seconds`：默认应为 `1800`，设为 `0` 表示禁用空排队容错。
 - `dispatched`：GitHub 已接受触发请求，不等于软件已更新成功。
-- `busy`：已有未完成检测，跳过重复触发，属于正常情况。
+- `busy`：已有未完成检测，跳过重复触发。短暂出现正常，持续出现应检查日志中的阻塞任务 ID。
+- `blocking_runs` / `blocking_run_count`：阻塞任务的 ID、状态和可解析的运行年龄，最多列出前 5 条，并记录总数。
+- `ignored_stale_runs` / `ignored_stale_run_count`：复核后忽略的旧排队记录，包含任务 ID、年龄和固定原因；最多列出前 5 条，并记录总数。
 - `cycle_failed`：检查网络、Token 权限/有效期及 GitHub 限流。
 
 再到仓库 **Actions → Upstream Watch** 查看逐包结果，发现新版时检查 Excavator 和后续 CI。没有新版时不启动 Excavator 是正常行为。首次启动立即检查，后续按间隔运行，网络中断、排队或已有任务未完成时不能保证每 3–5 分钟完成更新。5 分钟最多约 288 次触发请求/日，3 分钟约 480 次，可能增加 Actions 使用量，默认使用 3 分钟，如需降低使用量可选 5 分钟。

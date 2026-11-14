@@ -36,17 +36,17 @@ Existing workflow concurrency still serializes updates.
 
 ## Prebuilt image release and upgrades
 
-The transport fix is released as
-`ghcr.io/leexiexie/scoop-upstream-timer:1.0.2` after the repository's **Publish
+The stale queue recovery fix is released as
+`ghcr.io/leexiexie/scoop-upstream-timer:1.0.3` after the repository's **Publish
 Server Image** workflow succeeds. It publishes Linux amd64 and arm64 images,
 updates the rolling `latest` tag, and retains a full `sha-<source commit>` tag.
-Earlier `1.0.0` and `1.0.1` release tags are not replaced by this release. The
+Earlier `1.0.0`, `1.0.1`, and `1.0.2` release tags are not replaced by this release. The
 workflow checks both platform manifests and source-revision/version labels,
 then runs the offline regression suite against each published platform image.
 Its live `--check` is read-only; publication does not install or upgrade BaoTa.
 
 For the environment-only BaoTa deployment, follow [BAOTA.md](BAOTA.md), keep the
-existing server-side `GH_TOKEN`, and set the image to `:1.0.2` to pin this release
+existing server-side `GH_TOKEN`, and set the image to `:1.0.3` to pin this release
 or keep `:latest` for rolling upgrades. From this directory, after publication:
 
 ```sh
@@ -54,7 +54,7 @@ docker compose -f compose.baota.yml pull scheduler
 docker compose -f compose.baota.yml up -d --force-recreate scheduler
 ```
 
-These steps apply to upgrades from either `1.0.0` or `1.0.1`. Keep
+These steps apply to upgrades from `1.0.0`, `1.0.1`, or `1.0.2`. Keep
 `command: ["--interval", "180"]` for the default three-minute cadence; an old
 explicit `300` overrides the image default. Restarting the old container alone
 does not update its image, environment or command. Only keep one scheduler.
@@ -163,6 +163,17 @@ queue check and dispatch, then exits. The default mode keeps running. Structured
 JSON logs distinguish a skipped queued run, accepted dispatch, and API failures.
 A successful dispatch only means GitHub accepted the request, not that all
 packages were updated or that subsequent CI passed.
+
+Version 1.0.3 rechecks `queued` runs older than 1,800 seconds using their individual
+run endpoint. A completed run no longer blocks dispatch. A still-old queued run
+is ignored only when a second query confirms it has zero jobs. Active runs,
+runs with jobs, and missing or invalid metadata remain blocking; failed API
+rechecks prevent dispatch. No runs are automatically cancelled or deleted.
+The read-only `--check` performs the same rechecks without posting anything.
+Use `--stale-queued-seconds 3600` for a one-hour threshold or `0` to disable
+recovery. Logs identify blocking and ignored runs using bounded safe metadata.
+GitHub could later start an ignored queued run, so keep workflow concurrency and
+only one scheduler; this recovery does not provide an exactly-once guarantee.
 
 Version 1.0.2 negotiates gzip for GET requests and accepts identity responses too.
 Both the received wire data and decoded JSON are independently limited to 4 MiB.

@@ -215,7 +215,9 @@ python scripts/upstream_watch.py
 
 服务器版使用 Python 标准库直接调用 GitHub API，默认每 **3 分钟（180 秒）**唤醒现有全包监听，可用 `--interval 300` 调整为 **5 分钟**；不依赖 Windows 开机或 `gh` 登录，也不开放入站端口。提供 Docker Compose 常驻进程及 Linux systemd timer 两种部署方式，包含超时、有限重试、队列防重与结构化日志。
 
-程序入口为 [`scripts/server_upstream_timer.py`](scripts/server_upstream_timer.py)。**宝塔用户直接看 [中文部署步骤](deploy/server-timer/BAOTA.md)，将 [宝塔编排文件](deploy/server-timer/compose.baota.yml) 粘贴到 Docker → 容器编排，在 `environment` 填入 GitHub Token 后部署即可。编排使用滚动镜像 `ghcr.io/leexiexie/scoop-upstream-timer:latest`，也可使用 `ghcr.io/leexiexie/scoop-upstream-timer:1.0.2` 固定本次传输修复版；旧 `1.0.0` / `1.0.1` 标签仍保留。发布流程验证匿名拉取、来源提交、180 秒默认间隔，以及 Linux amd64 / arm64 两种镜像的回归测试。升级需要拉取并重建容器，仅重启旧容器不会更新镜像；无需下载脚本、创建挂载文件、创建 `.env` 或自行构建镜像。环境变量对宝塔/Docker 管理员及 `docker inspect` 可见，不要截图或提交真实 Token。** 其他安装方式、凭据权限、运行检查及卸载步骤见 [`deploy/server-timer/README.md`](deploy/server-timer/README.md)。凭据只放在服务器环境或私有文件，不提交到仓库。部署文件交付不等于已安装到服务器；服务器上观察两次自然成功运行后，再禁用下面的 Windows 任务，避免多个独立计时器重复唤醒。
+程序入口为 [`scripts/server_upstream_timer.py`](scripts/server_upstream_timer.py)。**宝塔用户直接看 [中文部署步骤](deploy/server-timer/BAOTA.md)，将 [宝塔编排文件](deploy/server-timer/compose.baota.yml) 粘贴到 Docker → 容器编排，在 `environment` 填入 GitHub Token 后部署即可。编排使用滚动镜像 `ghcr.io/leexiexie/scoop-upstream-timer:latest`，也可使用 `ghcr.io/leexiexie/scoop-upstream-timer:1.0.3` 固定本次排队容错版；旧 `1.0.0` / `1.0.1` / `1.0.2` 标签仍保留。发布流程验证匿名拉取、来源提交、180 秒默认间隔、30 分钟空排队复核阈值，以及 Linux amd64 / arm64 两种镜像的回归测试。升级需要拉取并重建容器，仅重启旧容器不会更新镜像；无需下载脚本、创建挂载文件、创建 `.env` 或自行构建镜像。环境变量对宝塔/Docker 管理员及 `docker inspect` 可见，不要截图或提交真实 Token。** 其他安装方式、凭据权限、运行检查及卸载步骤见 [`deploy/server-timer/README.md`](deploy/server-timer/README.md)。凭据只放在服务器环境或私有文件，不提交到仓库。部署文件交付不等于已安装到服务器；服务器上观察两次自然成功运行后，再禁用下面的 Windows 任务，避免多个独立计时器重复唤醒。
+
+`1.0.3` 对排队超过默认 30 分钟的任务复核单条状态和 jobs，仅在确认已完成或仍排队且没有任何 job 时不再阻塞。正在执行、已有 job 或信息不完整时仍跳过派发；日志记录安全的阻塞任务与忽略任务信息。可用 `--stale-queued-seconds 0` 禁用此容错，详见部署文档。
 
 `1.0.2` 为 GET 请求启用 gzip，分别将接收和解压后的数据限制在 4 MiB，解析前识别响应截断或损坏的 gzip，避免把已知的传输截断混报为 `invalid JSON`。临时失败沿用有界 GET 重试，持续失败则不派发；最近 100 次队列检查、180 秒默认间隔与 POST 不自动重试的策略保持不变。修复和镜像发布验证见 [Publish Server Image](https://github.com/LeeXieXie/scoop-personal/actions/runs/40195785206)，不代表网络故障已被永久消除或所有更新任务均成功。
 
