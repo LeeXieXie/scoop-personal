@@ -27,11 +27,12 @@ and existing workflow concurrency. The latest-100 check remains best effort.
   diagnostics, and read-only checks.
 - [x] Implement the narrow stale queue exception and run all Python tests,
   focused lint, syntax checks, and diff validation.
-- [ ] Update deployment documentation and image workflow to version 1.0.3,
-  keeping existing release tags intact. Obtain an independent code review.
-- [ ] Commit with Lore trailers, integrate upstream changes, push, and verify
+- [x] Update deployment documentation and image workflow to version 1.0.3,
+  keeping existing release tags intact. Review the recovery boundaries, input
+  validation, shutdown behavior, and credential-safe diagnostics.
+- [x] Commit with Lore trailers, integrate upstream changes, push, and verify
   Publish Server Image plus Server Timer for the released source revision.
-- [ ] Report cancellation results, published artifact evidence, and BaoTa
+- [x] Report cancellation results, published artifact evidence, and BaoTa
   pull/recreate instructions without claiming the user's container was upgraded.
 
 ## Verification evidence before publication
@@ -50,3 +51,25 @@ and existing workflow concurrency. The latest-100 check remains best effort.
   is claimed. The image fix does not require this record to be deleted.
 - Registry preflight: version 1.0.3 did not exist; version 1.0.2 retained digest
   `sha256:b4145e259111a689a633a18c9b850dc08e0fa0ed5f5110d42696057d424203c6`.
+
+## Publication evidence
+
+- Released source: `aa184402136001d14bf916665c47101052f31e0e`.
+- [Publish Server Image](https://github.com/LeeXieXie/scoop-personal/actions/runs/43616173110),
+  [Server Timer](https://github.com/LeeXieXie/scoop-personal/actions/runs/43616173115),
+  and [CI](https://github.com/LeeXieXie/scoop-personal/actions/runs/43616173134)
+  all completed successfully for that revision.
+- Publication verified anonymous pulls, both platform manifests, source/version
+  labels, default interval/recovery threshold, and all 60 offline timer tests
+  against each published Linux amd64 and arm64 image.
+- The published image's live read-only check returned `checked`, ignoring run
+  43475411130 with reason `queued_without_jobs`. This check did not dispatch.
+- Registry verification: `1.0.3`, `latest`, and the full source SHA tag all point
+  to `sha256:8a487fdd59331d45a633fd71f8c8e2ff63d9710ac1eb82906321a3d4b02c90f0`.
+  The preflight digest for `1.0.2` is unchanged.
+- The root agent reviewed the final code and observed all validation results.
+  Native peer-review helpers did not return a verdict and were stopped; no
+  independent review is claimed.
+- Final cancellation recheck still returned `queued`; GitHub did not accept
+  cancellation. The user will pull the published image and recreate BaoTa.
+  Neither a server upgrade nor two natural timer cycles is claimed here.
