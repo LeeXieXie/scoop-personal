@@ -55,6 +55,25 @@ def discover(m, get):
         if not match or match.lastindex != 1:
             raise ValueError('checkver regex must produce one version capture')
         return match[1], {}, None
+    # Keep Scoop and this watcher on the same reviewed release-readiness rule.
+    if set(rule) == {'github', 'script', 'regex'} and rule['github'] == 'https://api.github.com/repos/1jehuang/jcode-desktop/releases?per_page=100':
+        expected = json.loads((Path(__file__).parent / 'jcode-desktop-checkver.json').read_text(encoding='utf-8-sig'))
+        if rule != expected:
+            raise ValueError('Jcode Desktop checkver changed, adapter review required')
+        releases = json.loads(get(rule['github']))
+        if not isinstance(releases, list):
+            raise ValueError('Expected a Jcode Desktop release list')
+        for release in sorted(releases, key=lambda r: r.get('published_at') or '', reverse=True):
+            if release.get('draft') is not False or not release.get('published_at'):
+                continue
+            tag = re.fullmatch(r'desktop-v(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)', release.get('tag_name', ''))
+            if not tag:
+                continue
+            version = tag[1]
+            names = {'Jcode-' + version + '-windows-x86_64.zip', 'Jcode-' + version + '-windows-aarch64.zip', 'SHA256SUMS-windows', 'SHA256SUMS-windows-aarch64'}
+            if assets_ready(release, names):
+                return version, {}, release
+        raise ValueError('No published Jcode Desktop release has all required Windows assets')
     # This adapter deliberately recognizes only the reviewed provenance rule.
     if set(rule) == {'url', 'script', 'regex'} and rule['url'] == 'https://github.com/LeeXieXie/ZCode/releases/latest/download/build-provenance.json':
         expected = json.loads((Path(__file__).parent / 'zcode-checkver.json').read_text(encoding='utf-8-sig'))

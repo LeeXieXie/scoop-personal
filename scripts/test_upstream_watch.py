@@ -74,10 +74,70 @@ class WatchTests(unittest.TestCase):
         result = w.check('x', manifest, lambda url: json.dumps({'tag_name': 'v1.0.0', 'assets': []}))
         self.assertEqual(result['status'], 'upstream_older')
 
-    def test_atom_first_including_prerelease(self):
+    @staticmethod
+    def desktop_release(version, published='2026-11-14T00:00:00Z'):
+        return {
+            'tag_name': 'desktop-v' + version, 'draft': False, 'prerelease': '-' in version,
+            'published_at': published,
+            'assets': [{'name': name, 'state': 'uploaded', 'size': 1} for name in (
+                'Jcode-' + version + '-windows-x86_64.zip',
+                'Jcode-' + version + '-windows-aarch64.zip',
+                'SHA256SUMS-windows', 'SHA256SUMS-windows-aarch64',
+            )],
+        }
+
+    def test_desktop_published_releases_including_prerelease(self):
         m = json.loads(Path('bucket/jcode-desktop.json').read_text())
-        version, fields, release = w.discover(m, lambda url: '<feed><id>https://github.com/1jehuang/jcode-desktop/releases/tag/desktop-v0.7.0-beta.1</id></feed>')
-        self.assertEqual(version, '0.7.0-beta.1')
+        for version in ['0.7.0-beta.1', '0.7.0-beta.10', '0.7.0-rc.1', '0.7.0']:
+            candidate = self.desktop_release(version)
+            found, fields, release = w.discover(m, lambda url: json.dumps([candidate]))
+            self.assertEqual(found, version)
+            self.assertEqual(release, candidate)
+            self.assertEqual(fields, {})
+
+    def test_desktop_skips_unpublished_and_incomplete_releases(self):
+        m = json.loads(Path('bucket/jcode-desktop.json').read_text())
+        older = self.desktop_release('0.6.6-beta.17')
+        # The API omits a deleted/unpublished beta.18 even when Atom retains it.
+        found, _, _ = w.discover(m, lambda url: json.dumps([older]))
+        self.assertEqual(found, '0.6.6-beta.17')
+        for missing in range(4):
+            newer = self.desktop_release('0.6.6-beta.18', '2026-11-15T00:00:00Z')
+            del newer['assets'][missing]
+            found, _, _ = w.discover(m, lambda url: json.dumps([newer, older]))
+            self.assertEqual(found, '0.6.6-beta.17')
+        for change in [{'draft': True}, {'published_at': None}, {'tag_name': 'v9.9.9'}]:
+            newer = self.desktop_release('0.6.6-beta.18', '2026-11-15T00:00:00Z')
+            newer.update(change)
+            found, _, _ = w.discover(m, lambda url: json.dumps([newer, older]))
+            self.assertEqual(found, '0.6.6-beta.17')
+        for change in [{'size': 0}, {'state': 'new'}]:
+            newer = self.desktop_release('0.6.6-beta.18', '2026-11-15T00:00:00Z')
+            newer['assets'][0].update(change)
+            found, _, _ = w.discover(m, lambda url: json.dumps([newer, older]))
+            self.assertEqual(found, '0.6.6-beta.17')
+        # API order can differ from publication order; sort explicitly.
+        newer = self.desktop_release('0.6.6-beta.18', '2026-11-15T00:00:00Z')
+        found, _, _ = w.discover(m, lambda url: json.dumps([older, newer]))
+        self.assertEqual(found, '0.6.6-beta.18')
+
+    def test_desktop_detection_errors_still_fail(self):
+        m = json.loads(Path('bucket/jcode-desktop.json').read_text())
+        for data in ['[]', '{}', '{"message":"API rate limit exceeded"}', 'invalid json']:
+            with self.assertRaises(ValueError):
+                w.discover(m, lambda url: data)
+        incomplete = self.desktop_release('0.6.6-beta.18')
+        incomplete['assets'].pop()
+        with self.assertRaisesRegex(ValueError, 'No published Jcode Desktop release'):
+            w.discover(m, lambda url: json.dumps([incomplete]))
+        changed = json.loads(json.dumps(m))
+        changed['checkver']['script'] = ['unreviewed change']
+        with self.assertRaisesRegex(ValueError, 'adapter review required'):
+            w.discover(changed, lambda url: self.fail('Reject unreviewed scripts before fetching'))
+        def failed(url):
+            raise OSError('API unavailable')
+        with self.assertRaisesRegex(OSError, 'API unavailable'):
+            w.discover(m, failed)
 
     def test_deepseek_harness_community_versions(self):
         m = json.loads(Path('bucket/deepseek-harness.json').read_text())
@@ -101,7 +161,7 @@ class WatchTests(unittest.TestCase):
             version = m['version']
             rule = m['checkver']
             fields = {}
-            if 'github' in rule:
+            if set(rule) == {'github'}:
                 endpoint = 'https://api.github.com/repos/' + rule['github'].split('github.com/')[1] + '/releases/latest'
                 tag = 'v' + version
             elif name == 'deepseek-harness':
@@ -109,9 +169,8 @@ class WatchTests(unittest.TestCase):
                 endpoint = 'https://api.github.com/repos/LeeXieXie/deepseek-harness/releases/tags/v' + version
                 tag = 'v' + version
             elif name == 'jcode-desktop':
-                responses[rule['url']] = '<id>https://github.com/1jehuang/jcode-desktop/releases/tag/desktop-v' + version + '</id>'
-                endpoint = 'https://api.github.com/repos/1jehuang/jcode-desktop/releases/tags/desktop-v' + version
-                tag = 'desktop-v' + version
+                responses[rule['github']] = json.dumps([self.desktop_release(version)])
+                continue
             elif name == 'zcode':
                 fields = {'matchAppversion': '3.16.2', 'matchCommit': '3c5b22764937'}
                 tag = 'v3.16.2-upstream.3c5b22764937'

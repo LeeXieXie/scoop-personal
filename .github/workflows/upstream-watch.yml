@@ -10,6 +10,7 @@ on:
       - 'scripts/upstream_watch.py'
       - 'scripts/test_upstream_watch.py'
       - 'scripts/zcode-checkver.json'
+      - 'scripts/jcode-desktop-checkver.json'
       - '.github/workflows/upstream-watch.yml'
       - 'bucket/*.json'
 
