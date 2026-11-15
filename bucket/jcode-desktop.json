@@ -1,5 +1,5 @@
 {
-    "version": "0.6.6-beta.17",
+    "version": "0.6.6-beta.19",
     "description": "Native desktop client for Jcode with AI coding sessions, terminals, and remote workspaces.",
     "homepage": "https://github.com/1jehuang/jcode-desktop",
     "license": "MIT",
@@ -13,14 +13,14 @@
     ],
     "architecture": {
         "64bit": {
-            "url": "https://github.com/1jehuang/jcode-desktop/releases/download/desktop-v0.6.6-beta.17/Jcode-0.6.6-beta.17-windows-x86_64.zip",
-            "hash": "dbe1fb374e20cc092b440e8e9789b262abf306b9ddba771d7480a25e609e2685",
-            "extract_dir": "Jcode-0.6.6-beta.17-windows-x86_64"
+            "url": "https://github.com/1jehuang/jcode-desktop/releases/download/desktop-v0.6.6-beta.19/Jcode-0.6.6-beta.19-windows-x86_64.zip",
+            "hash": "00e670d50a704dc99a6ed4ed17442b94d2ade6b2242bb2a07642331b93d723ad",
+            "extract_dir": "Jcode-0.6.6-beta.19-windows-x86_64"
         },
         "arm64": {
-            "url": "https://github.com/1jehuang/jcode-desktop/releases/download/desktop-v0.6.6-beta.17/Jcode-0.6.6-beta.17-windows-aarch64.zip",
-            "hash": "a4ed8c9a7fdade506fcfbcb9275538fb406fa0262fec287f9e7d033e6fb100ee",
-            "extract_dir": "Jcode-0.6.6-beta.17-windows-aarch64"
+            "url": "https://github.com/1jehuang/jcode-desktop/releases/download/desktop-v0.6.6-beta.19/Jcode-0.6.6-beta.19-windows-aarch64.zip",
+            "hash": "7dfb6d4a5f1758ef147593c014694fbafd7d2dc633e6f1e766dd91834bd2640b",
+            "extract_dir": "Jcode-0.6.6-beta.19-windows-aarch64"
         }
     },
     "pre_install": [
