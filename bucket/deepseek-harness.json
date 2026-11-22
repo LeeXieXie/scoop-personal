@@ -1,5 +1,5 @@
 {
-    "version": "0.2.2-rc.5.20261118.44364897145001",
+    "version": "0.2.3-alpha.1.20261122.45004605782001",
     "description": "Unofficial portable Windows build of DeepSeek Harness, an Electron AI coding workspace.",
     "homepage": "https://github.com/LeeXieXie/deepseek-harness",
     "license": "MIT",
@@ -13,8 +13,8 @@
     ],
     "architecture": {
         "64bit": {
-            "url": "https://github.com/LeeXieXie/deepseek-harness/releases/download/v0.2.2-rc.5.20261118.44364897145001/dshdesktop-0.2.2-rc.5.20261118.44364897145001-windows-x64.zip",
-            "hash": "35af47438b4d444ede4029d42be45c29b02af69e5615ce8eda8a14f149666a35"
+            "url": "https://github.com/LeeXieXie/deepseek-harness/releases/download/v0.2.3-alpha.1.20261122.45004605782001/dshdesktop-0.2.3-alpha.1.20261122.45004605782001-windows-x64.zip",
+            "hash": "e4567f563deb2c40e14f072d0c1e20b55ded68e44554daa91afa2b727d89efb0"
         }
     },
     "shortcuts": [
