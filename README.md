@@ -203,7 +203,7 @@ python scripts/upstream_watch.py
 - `pebrel` 同时参与 Upstream Watch 与定时 Excavator，使用官方便携 ZIP 和 `SHA256SUMS`。
 - `thinkrail` 同时参与 Upstream Watch 与定时 Excavator，跟踪官方最新稳定版及其 Windows x64 EXE，从同一 Release 的 `SHA256SUMS` 读取 SHA-256；新增此清单不需要重新构建服务器计时器镜像。
 - `opencode2` 与 `openchamber` 同时参与 Upstream Watch 与定时 Excavator：监听发现新版本后派发更新，Excavator 再按各自 `checkver` / `autoupdate` 重写 URL、按 `hash.url` 抓取校验值。前者从 npm registry 的 `dist.integrity` 取 SHA-512，后者从官方 `latest.yml` / `latest-arm64.yml` 取 SHA-512。监听不替代实际下载和哈希校验，上游发布不完整时仍可能失败，必要时人工修正。
-- `smartsearch` 与 `jcode` 同时参与 Upstream Watch，并沿用每 30 分钟一次的 Excavator 兜底，分别从官方 Release 的 `SHA256SUMS.txt` / `SHA256SUMS` 读取 SHA256。Smart Search 使用完整 nupkg，Jcode 使用各架构 tar.gz；若任一架构产物未齐或校验失败，不应将其当作可安装的新版本。
+- `smartsearch` 与 `jcode` 同时参与 Upstream Watch，并沿用每 30 分钟一次的 Excavator 兜底，分别从官方 Release 的 `SHA256SUMS.txt` / `SHA256SUMS` 读取 SHA256。Jcode 两条更新路径都从最近 100 条发布中选择版本号最高、且 Windows x64 / ARM64 `tar.gz` 与 `SHA256SUMS` 都已上传且非空的稳定版；仅有 Linux 产物、仍缺文件或预发布的版本会被跳过，不会导致清单降级。
 - Upstream Watch 使用标准 `GITHUB_TOKEN` 的 `contents: read` 和 `actions: write` 权限调用已有 `workflow_dispatch`，无需额外配置 PAT；可手动在 `master` 分支运行监听任务。
 - `magpie-ai` 安装 `magpie.exe` 并持久化 `data` 目录。
 - `magpie-ai` 首次初始化时，仅在不存在已持久化的 `settings.json` 时设置 `noAutoUpdate = true`，关闭应用自更新，由 Scoop 负责更新；不会覆盖已持久化的设置。
@@ -215,7 +215,7 @@ python scripts/upstream_watch.py
 
 服务器版使用 Python 标准库直接调用 GitHub API，默认每 **3 分钟（180 秒）**唤醒现有全包监听，可用 `--interval 300` 调整为 **5 分钟**；不依赖 Windows 开机或 `gh` 登录，也不开放入站端口。提供 Docker Compose 常驻进程及 Linux systemd timer 两种部署方式，包含超时、有限重试、队列防重与结构化日志。
 
-程序入口为 [`scripts/server_upstream_timer.py`](scripts/server_upstream_timer.py)。**宝塔用户直接看 [中文部署步骤](deploy/server-timer/BAOTA.md)，将 [宝塔编排文件](deploy/server-timer/compose.baota.yml) 粘贴到 Docker → 容器编排，在 `environment` 填入 GitHub Token 后部署即可。编排使用滚动镜像 `ghcr.io/leexiexie/scoop-upstream-timer:latest`，也可使用 `ghcr.io/leexiexie/scoop-upstream-timer:1.0.3` 固定本次排队容错版；旧 `1.0.0` / `1.0.1` / `1.0.2` 标签仍保留。发布流程验证匿名拉取、来源提交、180 秒默认间隔、30 分钟空排队复核阈值，以及 Linux amd64 / arm64 两种镜像的回归测试。升级需要拉取并重建容器，仅重启旧容器不会更新镜像；无需下载脚本、创建挂载文件、创建 `.env` 或自行构建镜像。环境变量对宝塔/Docker 管理员及 `docker inspect` 可见，不要截图或提交真实 Token。** 其他安装方式、凭据权限、运行检查及卸载步骤见 [`deploy/server-timer/README.md`](deploy/server-timer/README.md)。凭据只放在服务器环境或私有文件，不提交到仓库。部署文件交付不等于已安装到服务器；服务器上观察两次自然成功运行后，再禁用下面的 Windows 任务，避免多个独立计时器重复唤醒。
+程序入口为 [`scripts/server_upstream_timer.py`](scripts/server_upstream_timer.py)。**宝塔用户直接看 [中文部署步骤](deploy/server-timer/BAOTA.md)，将 [宝塔编排文件](deploy/server-timer/compose.baota.yml) 粘贴到 Docker → 容器编排，在 `environment` 填入 GitHub Token 后部署即可。编排使用滚动镜像 `ghcr.io/leexiexie/scoop-upstream-timer:latest`，也可使用 `ghcr.io/leexiexie/scoop-upstream-timer:1.0.4` 固定版本；旧 `1.0.0` 至 `1.0.3` 标签仍保留。发布流程验证匿名拉取、来源提交、180 秒默认间隔、30 分钟空排队复核阈值，以及 Linux amd64 / arm64 两种镜像的回归测试。升级需要拉取并重建容器，仅重启旧容器不会更新镜像；无需下载脚本、创建挂载文件、创建 `.env` 或自行构建镜像。环境变量对宝塔/Docker 管理员及 `docker inspect` 可见，不要截图或提交真实 Token。** 其他安装方式、凭据权限、运行检查及卸载步骤见 [`deploy/server-timer/README.md`](deploy/server-timer/README.md)。凭据只放在服务器环境或私有文件，不提交到仓库。部署文件交付不等于已安装到服务器；服务器上观察两次自然成功运行后，再禁用下面的 Windows 任务，避免多个独立计时器重复唤醒。
 
 `1.0.3` 对排队超过默认 30 分钟的任务复核单条状态和 jobs，仅在确认已完成或仍排队且没有任何 job 时不再阻塞。正在执行、已有 job 或信息不完整时仍跳过派发；日志记录安全的阻塞任务与忽略任务信息。可用 `--stale-queued-seconds 0` 禁用此容错，详见部署文档。
 

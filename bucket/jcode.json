@@ -34,7 +34,24 @@
         "JCODE_NO_AUTO_UPDATE": "1"
     },
     "checkver": {
-        "github": "https://github.com/1jehuang/jcode"
+        "github": "https://api.github.com/repos/1jehuang/jcode/releases?per_page=100",
+        "script": [
+            "if (!$page -or !$page.TrimStart().StartsWith('[')) { throw 'Expected a Jcode release list.' }",
+            "$releases = $page | ConvertFrom-Json -ErrorAction Stop",
+            "$required = @('jcode-windows-x86_64.tar.gz', 'jcode-windows-aarch64.tar.gz', 'SHA256SUMS')",
+            "$best = $json.version",
+            "foreach ($release in $releases) {",
+            "    if ($release.draft -ne $false -or $release.prerelease -ne $false -or !$release.published_at) { continue }",
+            "    $tag = [regex]::Match([string]$release.tag_name, '^v([0-9]+\\.[0-9]+\\.[0-9]+)$')",
+            "    if (!$tag.Success) { continue }",
+            "    $version = $tag.Groups[1].Value",
+            "    if ([version]$version -le [version]$best) { continue }",
+            "    $ready = @($release.assets | Where-Object { $_.state -ceq 'uploaded' -and $_.size -gt 0 } | ForEach-Object { $_.name })",
+            "    if (@($required | Where-Object { $ready -cnotcontains $_ }).Count -eq 0) { $best = $version }",
+            "}",
+            "return $best"
+        ],
+        "regex": "^([0-9]+\\.[0-9]+\\.[0-9]+)$"
     },
     "autoupdate": {
         "architecture": {

@@ -75,6 +75,78 @@ class WatchTests(unittest.TestCase):
         self.assertEqual(result['status'], 'upstream_older')
 
     @staticmethod
+    def jcode_release(version):
+        return {
+            'tag_name': 'v' + version, 'draft': False, 'prerelease': False,
+            'published_at': '2026-11-23T00:00:00Z',
+            'assets': [{'name': name, 'state': 'uploaded', 'size': 1} for name in (
+                'jcode-windows-x86_64.tar.gz', 'jcode-windows-aarch64.tar.gz', 'SHA256SUMS',
+            )],
+        }
+
+    def test_jcode_linux_only_release_keeps_windows_version(self):
+        m = json.loads(Path('bucket/jcode.json').read_text())
+        m['version'] = '1.0.3'
+        current = self.jcode_release('1.0.3')
+        linux_only = self.jcode_release('1.1.2')
+        linux_only['assets'] = [{'name': 'jcode-linux-x86_64.tar.gz', 'state': 'uploaded', 'size': 1}, linux_only['assets'][2]]
+        base = 'https://api.github.com/repos/1jehuang/jcode/releases'
+        responses = {
+            base + '/latest': json.dumps(linux_only),
+            base + '?per_page=100': json.dumps([linux_only, current]),
+        }
+        result = w.check('jcode', m, responses.__getitem__)
+        self.assertEqual((result['upstream'], result['status']), ('1.0.3', 'current'))
+
+    def test_jcode_selects_highest_complete_stable_version(self):
+        m = json.loads(Path('bucket/jcode.json').read_text())
+        m['version'] = '1.0.3'
+        older = self.jcode_release('1.0.0')
+        lower = self.jcode_release('1.9.0')
+        ready = self.jcode_release('1.10.0')
+        for change in [{'draft': True}, {'published_at': None}, {'prerelease': True}, {'tag_name': 'v2.0.0-rc.1'}]:
+            newer = self.jcode_release('2.0.0')
+            newer.update(change)
+            with self.subTest(change=change):
+                result = w.check('jcode', m, lambda url: json.dumps([newer, lower, ready, older]))
+                self.assertEqual((result['upstream'], result['status']), ('1.10.0', 'ready'))
+        for index in range(3):
+            newer = self.jcode_release('2.0.0')
+            del newer['assets'][index]
+            with self.subTest(missing_asset=index):
+                result = w.check('jcode', m, lambda url: json.dumps([newer, ready]))
+                self.assertEqual((result['upstream'], result['status']), ('1.10.0', 'ready'))
+        for change in [{'size': 0}, {'state': 'new'}]:
+            newer = self.jcode_release('2.0.0')
+            newer['assets'][0].update(change)
+            with self.subTest(asset_change=change):
+                result = w.check('jcode', m, lambda url: json.dumps([newer, ready]))
+                self.assertEqual((result['upstream'], result['status']), ('1.10.0', 'ready'))
+
+    def test_jcode_release_list_without_current_or_newer_does_not_downgrade(self):
+        m = json.loads(Path('bucket/jcode.json').read_text())
+        m['version'] = '1.0.3'
+        base = 'https://api.github.com/repos/1jehuang/jcode/releases'
+        responses = {base + '/tags/v1.0.3': json.dumps(self.jcode_release('1.0.3'))}
+        for releases in [[], [self.jcode_release('1.0.0')]]:
+            responses[base + '?per_page=100'] = json.dumps(releases)
+            result = w.check('jcode', m, responses.__getitem__)
+            self.assertEqual((result['upstream'], result['status']), ('1.0.3', 'current'))
+
+    def test_jcode_invalid_release_list_is_not_treated_as_current(self):
+        m = json.loads(Path('bucket/jcode.json').read_text())
+        for data in ['{}', '{"message":"API rate limit exceeded"}', '[invalid json']:
+            with self.subTest(data=data), self.assertRaises(ValueError):
+                w.discover(m, lambda url: data)
+        with self.assertRaisesRegex(OSError, 'API unavailable'):
+            def failed(url):
+                raise OSError('API unavailable')
+            w.discover(m, failed)
+        m['checkver']['script'].append('unreviewed change')
+        with self.assertRaisesRegex(ValueError, 'adapter review required'):
+            w.discover(m, lambda url: self.fail('Reject unreviewed scripts before fetching'))
+
+    @staticmethod
     def desktop_release(version, published='2026-11-14T00:00:00Z'):
         return {
             'tag_name': 'desktop-v' + version, 'draft': False, 'prerelease': '-' in version,
@@ -168,6 +240,9 @@ class WatchTests(unittest.TestCase):
                 responses[rule['url']] = '<a href="/LeeXieXie/deepseek-harness/releases/tag/v' + version + '">Release</a>'
                 endpoint = 'https://api.github.com/repos/LeeXieXie/deepseek-harness/releases/tags/v' + version
                 tag = 'v' + version
+            elif name == 'jcode':
+                responses[rule['github']] = json.dumps([self.jcode_release(version)])
+                continue
             elif name == 'jcode-desktop':
                 responses[rule['github']] = json.dumps([self.desktop_release(version)])
                 continue

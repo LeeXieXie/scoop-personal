@@ -55,6 +55,22 @@ def discover(m, get):
         if not match or match.lastindex != 1:
             raise ValueError('checkver regex must produce one version capture')
         return match[1], {}, None
+    if set(rule) == {'github', 'script', 'regex'} and rule['github'] == 'https://api.github.com/repos/1jehuang/jcode/releases?per_page=100':
+        expected = json.loads((Path(__file__).parent / 'jcode-checkver.json').read_text(encoding='utf-8-sig'))
+        if rule != expected:
+            raise ValueError('Jcode checkver changed, adapter review required')
+        releases = json.loads(get(rule['github']))
+        if not isinstance(releases, list):
+            raise ValueError('Expected a Jcode release list')
+        names = {'jcode-windows-x86_64.tar.gz', 'jcode-windows-aarch64.tar.gz', 'SHA256SUMS'}
+        best = m['version'], {}, None
+        for release in releases:
+            if release.get('draft') is not False or release.get('prerelease') is not False or not release.get('published_at'):
+                continue
+            tag = re.fullmatch(r'v([0-9]+\.[0-9]+\.[0-9]+)', release.get('tag_name', ''))
+            if tag and compare(tag[1], best[0]) >= 0 and assets_ready(release, names):
+                best = tag[1], {}, release
+        return best
     # Keep Scoop and this watcher on the same reviewed release-readiness rule.
     if set(rule) == {'github', 'script', 'regex'} and rule['github'] == 'https://api.github.com/repos/1jehuang/jcode-desktop/releases?per_page=100':
         expected = json.loads((Path(__file__).parent / 'jcode-desktop-checkver.json').read_text(encoding='utf-8-sig'))

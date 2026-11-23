@@ -36,17 +36,17 @@ Existing workflow concurrency still serializes updates.
 
 ## Prebuilt image release and upgrades
 
-The stale queue recovery fix is released as
-`ghcr.io/leexiexie/scoop-upstream-timer:1.0.3` after the repository's **Publish
+The prebuilt timer is released as
+`ghcr.io/leexiexie/scoop-upstream-timer:1.0.4` after the repository's **Publish
 Server Image** workflow succeeds. It publishes Linux amd64 and arm64 images,
 updates the rolling `latest` tag, and retains a full `sha-<source commit>` tag.
-Earlier `1.0.0`, `1.0.1`, and `1.0.2` release tags are not replaced by this release. The
+Earlier release tags from `1.0.0` through `1.0.3` are not replaced by this release. The
 workflow checks both platform manifests and source-revision/version labels,
 then runs the offline regression suite against each published platform image.
 Its live `--check` is read-only; publication does not install or upgrade BaoTa.
 
 For the environment-only BaoTa deployment, follow [BAOTA.md](BAOTA.md), keep the
-existing server-side `GH_TOKEN`, and set the image to `:1.0.3` to pin this release
+existing server-side `GH_TOKEN`, and set the image to `:1.0.4` to pin this release
 or keep `:latest` for rolling upgrades. From this directory, after publication:
 
 ```sh
@@ -54,7 +54,7 @@ docker compose -f compose.baota.yml pull scheduler
 docker compose -f compose.baota.yml up -d --force-recreate scheduler
 ```
 
-These steps apply to upgrades from `1.0.0`, `1.0.1`, or `1.0.2`. Keep
+Keep
 `command: ["--interval", "180"]` for the default three-minute cadence; an old
 explicit `300` overrides the image default. Restarting the old container alone
 does not update its image, environment or command. Only keep one scheduler.
